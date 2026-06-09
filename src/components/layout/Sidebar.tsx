@@ -24,7 +24,7 @@ export function Sidebar() {
       />
       <nav id="sidebar" className={sidebarOpen ? 'mob-open' : ''}>
         <div className="slogo">
-          <div className="smark">SH</div>
+          <img className="smark brand-logo" src="/sartor-logo.jpg" alt="Sartor Health logo" width={32} height={32} />
           <div>
             <div className="sname">Sartor Health</div>
             <div className="srole">{config.label}</div>

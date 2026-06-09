@@ -117,6 +117,12 @@ body {
   flex-shrink: 0;
 }
 
+.brand-logo {
+  object-fit: cover;
+  background: transparent;
+  display: block;
+}
+
 .sname {
   font-size: 14px;
   font-weight: 600;
