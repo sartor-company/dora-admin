@@ -23,4 +23,24 @@ export const billingApi = {
     const res = await apiClient.post(`/billing/invoices/${id}/pay`, { email });
     return unwrap<{ authorization_url?: string; manual?: boolean; invoiceId?: string }>(res);
   },
+
+  creditPackages: async () => {
+    const res = await apiClient.get('/billing/credit-packages');
+    return unwrap<{
+      packages: Record<
+        string,
+        { label: string; unit: string; pricePerUnit: number; min: number; step: number }
+      >;
+    }>(res);
+  },
+
+  requestCreditInvoice: async (type: 'sms' | 'pin' | 'batch', quantity: number) => {
+    const res = await apiClient.post('/billing/credit-invoice', { type, quantity });
+    return unwrap<{
+      invoiceId: string;
+      amount: number;
+      status: string;
+      description: string;
+    }>(res);
+  },
 };

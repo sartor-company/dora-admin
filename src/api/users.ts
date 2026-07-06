@@ -13,6 +13,7 @@ export const usersApi = {
     email: string;
     phone: string;
     role: string;
+    consoleRole?: 'batch' | 'brand' | 'inv';
   }) => {
     const res = await apiClient.post('/user/create', body);
     return unwrap<ApiTeamMember>(res);

@@ -17,6 +17,7 @@ import { usersApi } from '../api/users';
 import { useAuthStore } from '../store/authStore';
 import { analyticsApi } from '../api/analytics';
 import { giftsApi } from '../api/gifts';
+import { investigationsApi, type InvestigationRow, type InvestigationStats } from '../api/investigations';
 import type { AnalyticsOverview } from '../types/analytics';
 import type { CampaignListItem, CampaignSummary } from '../types/gifts';
 import type { ApiBatch, ApiNotification, ApiProduct, ApiTeamMember } from '../types/api';
@@ -40,6 +41,9 @@ interface TenantDataContextValue {
   analytics: AnalyticsOverview | null;
   campaigns: CampaignListItem[];
   campaignSummary: CampaignSummary | null;
+  investigations: InvestigationRow[];
+  investigationStats: InvestigationStats | null;
+  navBadges: { fraud?: number; investigations?: number; notifications?: number };
   loading: boolean;
   doraUploadTarget: DoraUploadTarget | null;
   setDoraUploadTarget: (target: DoraUploadTarget | null) => void;
@@ -50,8 +54,11 @@ interface TenantDataContextValue {
   refreshInvoices: () => Promise<void>;
   refreshAnalytics: () => Promise<void>;
   refreshCampaigns: () => Promise<void>;
+  refreshInvestigations: () => Promise<void>;
   refreshAll: () => Promise<void>;
   refreshAccount: () => Promise<void>;
+  giftModalNonce: number;
+  notifyGiftChange: () => void;
 }
 
 const TenantDataContext = createContext<TenantDataContextValue | null>(null);
@@ -67,8 +74,12 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
   const [analytics, setAnalytics] = useState<AnalyticsOverview | null>(null);
   const [campaigns, setCampaigns] = useState<CampaignListItem[]>([]);
   const [campaignSummary, setCampaignSummary] = useState<CampaignSummary | null>(null);
+  const [investigations, setInvestigations] = useState<InvestigationRow[]>([]);
+  const [investigationStats, setInvestigationStats] = useState<InvestigationStats | null>(null);
   const [loading, setLoading] = useState(false);
   const [doraUploadTarget, setDoraUploadTarget] = useState<DoraUploadTarget | null>(null);
+  const [giftModalNonce, setGiftModalNonce] = useState(0);
+  const notifyGiftChange = useCallback(() => setGiftModalNonce((n) => n + 1), []);
 
   const refreshProducts = useCallback(async () => {
     const list = await productsApi.list();
@@ -109,6 +120,13 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
     setCampaignSummary(summary);
   }, []);
 
+  const refreshInvestigations = useCallback(async () => {
+    const { rows, kpis } = await investigationsApi.list();
+    setInvestigations(rows);
+    if (kpis) setInvestigationStats(kpis);
+    else setInvestigationStats(await investigationsApi.stats());
+  }, []);
+
   const refreshAccount = useCallback(async () => {
     const profile = await authApi.getAccount();
     updateProfile({ ...profile, token: useAuthStore.getState().token! });
@@ -125,12 +143,13 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
         refreshInvoices(),
         refreshAnalytics(),
         refreshCampaigns(),
+        refreshInvestigations(),
         refreshAccount(),
       ]);
     } finally {
       setLoading(false);
     }
-  }, [refreshProducts, refreshBatches, refreshNotifications, refreshTeam, refreshInvoices, refreshAnalytics, refreshCampaigns, refreshAccount]);
+  }, [refreshProducts, refreshBatches, refreshNotifications, refreshTeam, refreshInvoices, refreshAnalytics, refreshCampaigns, refreshInvestigations, refreshAccount]);
 
   useEffect(() => {
     if (token) refreshAll();
@@ -143,11 +162,34 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       setAnalytics(null);
       setCampaigns([]);
       setCampaignSummary(null);
+      setInvestigations([]);
+      setInvestigationStats(null);
     }
   }, [token, refreshAll]);
 
-  const productRows = useMemo(() => products.map(productDisplayRow), [products]);
-  const batchRows = useMemo(() => batches.map(batchDisplayRow), [batches]);
+  const productRows = useMemo(() => {
+    const statsById = Object.fromEntries(
+      (analytics?.topProducts ?? []).map((p) => [p.productId, p]),
+    );
+    return products.map((p) => {
+      const s = statsById[p._id];
+      return productDisplayRow(
+        p,
+        s ? { scans: s.scans, authRate: s.authRate } : undefined,
+      );
+    });
+  }, [products, analytics]);
+  const batchRows = useMemo(() => batches.map((b) => batchDisplayRow(b)), [batches]);
+  const navBadges = useMemo(() => {
+    const unread = notifications.filter((n) => !n.status).length;
+    const fraud = analytics?.kpis.fraudAlerts ?? 0;
+    const invQueue = investigationStats?.queue ?? 0;
+    return {
+      fraud: fraud > 0 ? fraud : undefined,
+      investigations: invQueue > 0 ? invQueue : undefined,
+      notifications: unread > 0 ? unread : undefined,
+    };
+  }, [analytics, investigationStats, notifications]);
 
   const value = useMemo(
     () => ({
@@ -161,6 +203,9 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       analytics,
       campaigns,
       campaignSummary,
+      investigations,
+      investigationStats,
+      navBadges,
       loading,
       doraUploadTarget,
       setDoraUploadTarget,
@@ -171,8 +216,11 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       refreshInvoices,
       refreshAnalytics,
       refreshCampaigns,
+      refreshInvestigations,
       refreshAll,
       refreshAccount,
+      giftModalNonce,
+      notifyGiftChange,
     }),
     [
       products,
@@ -185,6 +233,9 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       analytics,
       campaigns,
       campaignSummary,
+      investigations,
+      investigationStats,
+      navBadges,
       loading,
       doraUploadTarget,
       refreshProducts,
@@ -194,8 +245,11 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       refreshInvoices,
       refreshAnalytics,
       refreshCampaigns,
+      refreshInvestigations,
       refreshAll,
       refreshAccount,
+      giftModalNonce,
+      notifyGiftChange,
     ],
   );
 

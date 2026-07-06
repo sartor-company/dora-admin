@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -15,6 +16,7 @@ import type { ClientType, CurrencyCode, RoleId } from '../types';
 interface AppContextValue {
   role: RoleId;
   setRole: (role: RoleId) => void;
+  displayUser: string;
   clientType: ClientType;
   currency: CurrencyCode;
   setCurrency: (code: CurrencyCode) => void;
@@ -41,19 +43,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logoutStore = useAuthStore((s) => s.logout);
-  const [role, setRoleState] = useState<RoleId>('owner');
+  const [role, setRoleState] = useState<RoleId>(user?.consoleRole ?? 'owner');
   const [currency, setCurrency] = useState<CurrencyCode>('NGN');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (user?.consoleRole) setRoleState(user.consoleRole);
+  }, [user?.consoleRole]);
 
   const isReadOnly = role === 'brand' || role === 'inv';
   const clientType: ClientType = user?.engagement === 'pilot' ? 'pilot' : 'full';
   const companyName = user?.fullName || 'Sartor Client';
+  const displayUser = user?.displayName || ROLES[role].user;
   const clientName =
     clientType === 'pilot' ? `${companyName} (Pilot)` : companyName;
 
   const setRole = useCallback(
     (next: RoleId) => {
-      if (!import.meta.env.DEV) return;
       setRoleState(next);
       navigate(ROLES[next].defaultPath);
       setSidebarOpen(false);
@@ -92,6 +98,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       role,
       setRole,
+      displayUser,
       clientType,
       currency,
       setCurrency,
@@ -114,6 +121,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [
       role,
       setRole,
+      displayUser,
       clientType,
       currency,
       isReadOnly,

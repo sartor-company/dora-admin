@@ -1,118 +1,128 @@
+import { useEffect, useState } from 'react';
+import { billingApi } from '../api/billing';
 import { CurrencyAmount } from '../components/ui/CurrencyAmount';
 import { Button } from '../components/ui/Button';
+import { FormGroup } from '../components/ui/FormGroup';
 import { Modal, ModalFooter } from '../components/ui/Modal';
 import { TabBar } from '../components/ui/TabBar';
 import { useTabs } from '../hooks/useTabs';
+import { useAuthStore } from '../store/authStore';
 
 interface BuyCreditsModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: () => void;
+  onSuccess: (invoiceId: string) => void;
 }
 
-type CreditTab = 'pin' | 'sms' | 'cal';
+type CreditTab = 'pin' | 'sms' | 'batch';
 
 const TABS = [
   { id: 'pin' as const, label: 'PIN Auth' },
   { id: 'sms' as const, label: 'SMS' },
-  { id: 'cal' as const, label: 'Batch Calibration' },
+  { id: 'batch' as const, label: 'Batch Calibration' },
 ];
 
-export function BuyCreditsModal({ open, onClose, onSubmit }: BuyCreditsModalProps) {
+const DEFAULT_QTY: Record<CreditTab, number> = {
+  pin: 10000,
+  sms: 10000,
+  batch: 5,
+};
+
+export function BuyCreditsModal({ open, onClose, onSuccess }: BuyCreditsModalProps) {
   const { active, setActive } = useTabs<CreditTab>('pin');
+  const user = useAuthStore((s) => s.user);
+  const [qty, setQty] = useState(DEFAULT_QTY.pin);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [packages, setPackages] = useState<
+    Record<string, { label: string; unit: string; pricePerUnit: number; min: number }>
+  >({});
+
+  useEffect(() => {
+    if (!open) return;
+    billingApi.creditPackages().then((r) => setPackages(r.packages)).catch(() => {});
+    setQty(DEFAULT_QTY[active]);
+    setError('');
+  }, [open, active]);
+
+  const pkg = packages[active];
+  const amount = pkg ? Math.round(qty * pkg.pricePerUnit) : 0;
+
+  const submit = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const inv = await billingApi.requestCreditInvoice(active, qty);
+      onSuccess(inv.invoiceId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not create invoice');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Modal
       open={open}
       onClose={onClose}
       title="Purchase Credits"
-      subtitle="Credits never expire while subscription is active"
+      subtitle="Self-service invoice — pay online or contact sales"
       width={500}
     >
       <TabBar tabs={TABS} active={active} onChange={(id) => setActive(id as CreditTab)} />
 
-      {active === 'pin' && (
-        <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
-          <BundleOption
-            title="Entry Bundle — 10,000 PINs"
-            sub="₦15.00/PIN · Best for low-volume testing"
-            amount={150000}
-            selected
-          />
-          <BundleOption title="Growth Bundle — 50,000 PINs" sub="₦12.00/PIN · 20% saving" amount={600000} />
-          <BundleOption title="Scale Bundle — 200,000 PINs" sub="₦10.00/PIN · Best value" amount={2000000} />
-        </div>
-      )}
+      <FormGroup label={pkg ? `${pkg.label} quantity` : 'Quantity'}>
+        <input
+          className="inp"
+          type="number"
+          min={pkg?.min ?? 1}
+          step={active === 'batch' ? 1 : 1000}
+          value={qty}
+          onChange={(e) => setQty(parseInt(e.target.value, 10) || 0)}
+        />
+        {pkg && (
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+            Min {pkg.min.toLocaleString()} {pkg.unit} · ₦{pkg.pricePerUnit}/{pkg.unit}
+          </div>
+        )}
+      </FormGroup>
 
-      {active === 'sms' && (
-        <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
-          <BundleOption title="Starter — 10,000 SMS" sub="₦4.50/SMS" amount={45000} selected />
-          <BundleOption title="Standard — 50,000 SMS" sub="₦4.00/SMS · 11% saving" amount={200000} />
-        </div>
-      )}
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: 14,
+          background: 'var(--bb)',
+          borderRadius: 8,
+          marginBottom: 14,
+        }}
+      >
+        <span style={{ fontWeight: 600 }}>Invoice total</span>
+        <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--navy)' }}>
+          <CurrencyAmount nairaAmount={amount} />
+        </span>
+      </div>
 
-      {active === 'cal' && (
-        <div style={{ display: 'grid', gap: 8, marginBottom: 14 }}>
-          <BundleOption
-            title="Professional Bundle — 30 calibrations"
-            sub="₦120,000/batch · Each credit = 1 DORA model calibration"
-            amount={3600000}
-            selected
-          />
-          <BundleOption
-            title="Enterprise Bundle — 100 calibrations"
-            sub="₦100,000/batch · 17% saving"
-            amount={10000000}
-          />
+      {error && (
+        <div style={{ padding: 9, background: 'var(--rb)', borderRadius: 7, fontSize: 12, color: 'var(--rt)', marginBottom: 12 }}>
+          {error}
         </div>
       )}
 
       <div style={{ padding: 9, background: 'var(--ab)', borderRadius: 7, fontSize: 12, color: 'var(--at)', marginBottom: 14 }}>
-        ⚠ Payment is processed via bank transfer. An invoice will be emailed on confirmation. Credits
-        are applied within 1 business day of payment confirmation.
+        An invoice is created instantly. Pay via Paystack from Settings, or email{' '}
+        <a href="mailto:sales@sartor.ng">sales@sartor.ng</a> for bank transfer ({user?.clientCode || 'your account'}).
       </div>
 
       <ModalFooter>
-        <Button variant="secondary" onClick={onClose}>
+        <Button variant="secondary" onClick={onClose} disabled={loading}>
           Cancel
         </Button>
-        <Button onClick={onSubmit}>Request Purchase</Button>
+        <Button onClick={submit} disabled={loading || !pkg}>
+          {loading ? 'Creating invoice…' : 'Create invoice & pay'}
+        </Button>
       </ModalFooter>
     </Modal>
-  );
-}
-
-function BundleOption({
-  title,
-  sub,
-  amount,
-  selected,
-}: {
-  title: string;
-  sub: string;
-  amount: number;
-  selected?: boolean;
-}) {
-  return (
-    <label
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: 12,
-        border: selected ? '2px solid var(--navy)' : '1px solid var(--border)',
-        background: selected ? 'var(--bb)' : '#fff',
-        borderRadius: 8,
-        cursor: 'pointer',
-      }}
-    >
-      <div>
-        <div style={{ fontWeight: 600, fontSize: 13, color: selected ? 'var(--bt)' : 'inherit' }}>{title}</div>
-        <div style={{ fontSize: 11, color: selected ? 'var(--bt)' : 'var(--text3)' }}>{sub}</div>
-      </div>
-      <div style={{ fontWeight: 700, fontSize: 15, color: selected ? 'var(--bt)' : 'inherit' }}>
-        <CurrencyAmount nairaAmount={amount} />
-      </div>
-    </label>
   );
 }

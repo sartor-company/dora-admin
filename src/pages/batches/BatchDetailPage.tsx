@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { analyticsApi } from '../../api/analytics';
 import { batchesApi } from '../../api/batches';
+import { LineChartCard } from '../../components/charts/LineChartCard';
 import { Badge } from '../../components/ui/Badge';
 import { BackLink } from '../../components/ui/BackLink';
 import { Button } from '../../components/ui/Button';
@@ -12,7 +14,8 @@ import { useApp } from '../../context/AppContext';
 import { useTenantData } from '../../context/TenantDataContext';
 import { useModal } from '../../context/ModalContext';
 import type { ApiBatch, ApiProduct } from '../../types/api';
-import { formatApiDate } from '../../utils/mappers';
+import type { BatchAnalytics } from '../../types/analytics';
+import { formatApiDate, formatPercent, scanTrendChart } from '../../utils/mappers';
 
 type BatchDetail = ApiBatch & {
   labels?: unknown[];
@@ -22,10 +25,11 @@ type BatchDetail = ApiBatch & {
 export function BatchDetailPage() {
   const [searchParams] = useSearchParams();
   const batchId = searchParams.get('id') || '';
-  const { navigateTo, crmEnabled, verifyDomain } = useApp();
+  const { navigateTo, crmEnabled, verifyDomain, isReadOnly } = useApp();
   const { setDoraUploadTarget } = useTenantData();
   const { openModal } = useModal();
   const [batch, setBatch] = useState<BatchDetail | null>(null);
+  const [batchAnalytics, setBatchAnalytics] = useState<BatchAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -51,6 +55,7 @@ export function BatchDetailPage() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+    analyticsApi.batch(batchId, 30).then(setBatchAnalytics).catch(() => setBatchAnalytics(null));
     return () => {
       cancelled = true;
     };
@@ -116,6 +121,21 @@ export function BatchDetailPage() {
           <Badge variant={batch.status === 'active' ? 'bg' : 'bx'}>{statusLabel}</Badge>
         </div>
         <div className="pghead-actions">
+          {!isReadOnly && (
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() =>
+                openModal('flag-batch-inv', {
+                  batchId: batch._id,
+                  batchNumber: batch.batchNumber,
+                  productName,
+                })
+              }
+            >
+              Flag for Investigation
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={openDora}>
             {hasDoraImages ? 'Retrain DORA' : 'Upload DORA Images'}
           </Button>
@@ -126,10 +146,20 @@ export function BatchDetailPage() {
         stats={[
           { label: 'Quantity', value: String(batch.quantity) },
           { label: 'PINs generated', value: String(pinCount) },
-          { label: 'Invoice', value: batch.invoiceNumber || '—' },
-          { label: 'DORA', value: hasDoraImages ? 'Uploaded' : 'Pending', valueColor: hasDoraImages ? 'var(--green)' : 'var(--amber)' },
+          { label: 'Scans (30d)', value: String(batchAnalytics?.scans ?? 0) },
+          { label: 'Auth rate', value: formatPercent(batchAnalytics?.authRate), valueColor: 'var(--gt)' },
         ]}
       />
+
+      {batchAnalytics && (
+        <div className="r2" style={{ marginBottom: 14 }}>
+          <LineChartCard
+            title={`Scan trend — ${batch.batchNumber}`}
+            labels={scanTrendChart(batchAnalytics.scanTrend).labels}
+            data={scanTrendChart(batchAnalytics.scanTrend).data}
+          />
+        </div>
+      )}
 
       <div className="r2">
         <Card>

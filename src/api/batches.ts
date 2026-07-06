@@ -31,4 +31,12 @@ export const batchesApi = {
     const res = await apiClient.post('/batch', body);
     return unwrap<ApiBatch[]>(res);
   },
+
+  update: async (
+    id: string,
+    body: { status?: string; quantity?: number; expiryDate?: number },
+  ) => {
+    const res = await apiClient.put(`/batch/edit/${id}`, body);
+    return unwrap<ApiBatch>(res);
+  },
 };

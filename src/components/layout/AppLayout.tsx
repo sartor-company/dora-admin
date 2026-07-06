@@ -1,13 +1,11 @@
 import { Outlet } from 'react-router-dom';
 import { ModalsRoot } from '../../modals/ModalsRoot';
-import { DemoTopBar } from './DemoTopBar';
 import { Sidebar } from './Sidebar';
 import { TopToolbar } from './TopToolbar';
 
 export function AppLayout() {
   return (
     <>
-      <DemoTopBar />
       <div id="app">
         <Sidebar />
         <main id="main">

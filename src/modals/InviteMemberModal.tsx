@@ -16,7 +16,7 @@ export function InviteMemberModal({ open, onClose, onSuccess }: InviteMemberModa
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState('Sales Rep');
+  const [consoleRole, setConsoleRole] = useState<'batch' | 'brand' | 'inv'>('batch');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -24,7 +24,7 @@ export function InviteMemberModal({ open, onClose, onSuccess }: InviteMemberModa
     setFullName('');
     setEmail('');
     setPhone('');
-    setRole('Sales Rep');
+    setConsoleRole('batch');
     setError('');
   };
 
@@ -45,7 +45,8 @@ export function InviteMemberModal({ open, onClose, onSuccess }: InviteMemberModa
         fullName: fullName.trim(),
         email: email.trim(),
         phone: phone.trim(),
-        role,
+        role: 'Manager',
+        consoleRole,
       });
       await refreshTeam();
       reset();
@@ -73,13 +74,16 @@ export function InviteMemberModal({ open, onClose, onSuccess }: InviteMemberModa
       <FormGroup label="Phone *">
         <input className="inp" placeholder="+234…" value={phone} onChange={(e) => setPhone(e.target.value)} />
       </FormGroup>
-      <FormGroup label="Role *">
-        <select className="inp" value={role} onChange={(e) => setRole(e.target.value)}>
-          <option>Sales Rep</option>
+      <FormGroup label="Console role *">
+        <select className="inp" value={consoleRole} onChange={(e) => setConsoleRole(e.target.value as typeof consoleRole)}>
+          <option value="batch">Batch Admin</option>
+          <option value="brand">Brand Manager</option>
+          <option value="inv">Investigation Officer</option>
+        </select>
+      </FormGroup>
+      <FormGroup label="CRM role">
+        <select className="inp" value="Manager" disabled>
           <option>Manager</option>
-          <option>Inventory Manager</option>
-          <option>Merchandiser</option>
-          <option>Admin</option>
         </select>
       </FormGroup>
       <div style={{ padding: 9, background: 'var(--bb)', borderRadius: 7, fontSize: 12, color: 'var(--bt)', marginBottom: 14 }}>

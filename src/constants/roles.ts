@@ -16,7 +16,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         title: 'Overview',
         items: [
           { label: 'Dashboard', icon: 'grid', path: '/owner/dashboard' },
-          { label: 'Notifications', icon: 'alert', path: '/notifications', badge: 3 },
+          { label: 'Notifications', icon: 'alert', path: '/notifications' },
         ],
       },
       {
@@ -38,14 +38,14 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         items: [
           { label: 'Brand Dashboard', icon: 'chart', path: '/brand/dashboard' },
           { label: 'Consumer Loyalty', icon: 'gift', path: '/brand/loyalty' },
-          { label: 'Fraud Alerts', icon: 'alert', path: '/brand/fraud', badge: 3 },
+          { label: 'Fraud Alerts', icon: 'alert', path: '/brand/fraud' },
           { label: 'Reports', icon: 'chart2', path: '/reports' },
         ],
       },
       {
         title: 'Investigations',
         items: [
-          { label: 'Investigation Queue', icon: 'search', path: '/investigations/queue', badge: 4 },
+          { label: 'Investigation Queue', icon: 'search', path: '/investigations/queue' },
           { label: 'Closed Cases', icon: 'check', path: '/investigations/closed' },
         ],
       },
@@ -70,7 +70,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         title: 'Overview',
         items: [
           { label: 'Dashboard', icon: 'grid', path: '/batch/dashboard' },
-          { label: 'Alerts', icon: 'alert', path: '/batch/dashboard', badge: 2 },
+          { label: 'Alerts', icon: 'alert', path: '/batch/dashboard' },
         ],
       },
       {
@@ -121,7 +121,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { label: 'Products', icon: 'box', path: '/products' },
           { label: 'Geographic Heat Map', icon: 'map', path: '/brand/geo' },
           { label: 'Consumer Loyalty', icon: 'gift', path: '/brand/loyalty' },
-          { label: 'Fraud Alerts', icon: 'alert', path: '/brand/fraud', badge: 3 },
+          { label: 'Fraud Alerts', icon: 'alert', path: '/brand/fraud' },
           { label: 'Reports', icon: 'chart2', path: '/reports' },
         ],
       },
@@ -149,7 +149,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       {
         title: 'Investigations',
         items: [
-          { label: 'Investigation Queue', icon: 'search', path: '/investigations/queue', badge: 4 },
+          { label: 'Investigation Queue', icon: 'search', path: '/investigations/queue' },
           { label: 'Closed Cases', icon: 'check', path: '/investigations/closed' },
           { label: 'Fraud Patterns', icon: 'alert', path: '/investigations/dashboard' },
         ],

@@ -1,12 +1,16 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { RoleId } from '../types';
 
 export interface TenantProfile {
   _id: string;
   fullName: string;
+  /** Staff member display name when accountType is user */
+  displayName?: string;
   email: string;
   token: string;
   accountType: 'admin' | 'user';
+  consoleRole: RoleId;
   role?: string;
   clientCode?: string;
   rcNumber?: string;
@@ -17,6 +21,7 @@ export interface TenantProfile {
   engagement?: 'pilot' | 'full';
   smsCredits?: number;
   pinCredits?: number;
+  batchCalCredits?: number;
   verifyDomain?: string;
   domainTier?: string;
   crmEnabled?: boolean;
@@ -29,8 +34,10 @@ export interface TenantProfile {
 interface AuthState {
   user: TenantProfile | null;
   token: string | null;
+  sessionChecked: boolean;
   setAuth: (user: TenantProfile) => void;
   updateProfile: (patch: Partial<TenantProfile>) => void;
+  setSessionChecked: (v: boolean) => void;
   logout: () => void;
 }
 
@@ -39,10 +46,12 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       token: null,
-      setAuth: (user) => set({ user, token: user.token }),
+      sessionChecked: false,
+      setAuth: (user) => set({ user, token: user.token, sessionChecked: true }),
       updateProfile: (patch) =>
         set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
-      logout: () => set({ user: null, token: null }),
+      setSessionChecked: (sessionChecked) => set({ sessionChecked }),
+      logout: () => set({ user: null, token: null, sessionChecked: true }),
     }),
     { name: 'dora-client-auth' },
   ),

@@ -22,4 +22,18 @@ export const productsApi = {
     const res = await apiClient.post('/product', body);
     return unwrap<ApiProduct>(res);
   },
+
+  update: async (
+    id: string,
+    body: {
+      productName?: string;
+      manufacturer?: string;
+      barcodeNumber?: string;
+      description?: string;
+      status?: string;
+    },
+  ) => {
+    const res = await apiClient.put(`/product/edit/${id}`, body);
+    return unwrap<ApiProduct>(res);
+  },
 };

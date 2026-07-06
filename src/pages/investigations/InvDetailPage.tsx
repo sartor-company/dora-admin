@@ -1,198 +1,122 @@
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { investigationsApi } from '../../api/investigations';
 import { Badge } from '../../components/ui/Badge';
 import { BackLink } from '../../components/ui/BackLink';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { InfoCell, InfoGrid } from '../../components/ui/InfoGrid';
 import { useApp } from '../../context/AppContext';
-import { useModal } from '../../context/ModalContext';
+import { useTenantData } from '../../context/TenantDataContext';
 import { useToast } from '../../context/ToastContext';
-import { doraFeatures } from '../../data/mock';
-
-const heroStats = [
-  { label: 'DORA Score', value: '23', large: true },
-  { label: 'Scan Date', value: 'Apr 15, 2026' },
-  { label: 'Product', value: 'Carabiner Holder' },
-  { label: 'Location', value: 'Shanghai, CN' },
-];
+import type { InvestigationRow } from '../../api/investigations';
+import type { BadgeVariant } from '../../types';
 
 export function InvDetailPage() {
   const { navigateLegacy } = useApp();
-  const { openModal } = useModal();
+  const { refreshInvestigations } = useTenantData();
   const { showToast } = useToast();
+  const [params] = useSearchParams();
+  const id = params.get('id') || '';
+  const [inv, setInv] = useState<InvestigationRow | null>(null);
+  const [note, setNote] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!id) return;
+    setLoading(true);
+    investigationsApi
+      .get(id)
+      .then(setInv)
+      .catch(() => setInv(null))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const addNote = async () => {
+    if (!id || !note.trim()) return;
+    try {
+      const updated = await investigationsApi.addNote(id, note.trim());
+      setInv(updated);
+      setNote('');
+      showToast('Note added to investigation', 'success');
+      await refreshInvestigations();
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not save note');
+    }
+  };
+
+  if (!id) {
+    return (
+      <div style={{ padding: 24, color: 'var(--text3)' }}>
+        No investigation selected.{' '}
+        <button type="button" className="linkish" onClick={() => navigateLegacy('pg-inv-queue')}>
+          Back to queue
+        </button>
+      </div>
+    );
+  }
+
+  if (loading) return <div style={{ padding: 24 }}>Loading investigation…</div>;
+  if (!inv) return <div style={{ padding: 24, color: 'var(--rt)' }}>Investigation not found.</div>;
 
   return (
     <>
-      <BackLink onClick={() => navigateLegacy('pg-inv-queue')}>
-        ← Back to Investigation Queue
-      </BackLink>
+      <BackLink onClick={() => navigateLegacy('pg-inv-queue')}>← Back to Investigation Queue</BackLink>
 
       <div className="hero">
         <div className="title-row" style={{ marginBottom: 4 }}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>INV-2024-087</div>
-          <Badge variant="br">P1 PRIORITY</Badge>
-          <Badge variant="br">OPEN</Badge>
+          <div style={{ fontSize: 17, fontWeight: 700, color: '#fff' }}>{inv.id}</div>
+          <Badge variant="br">{inv.priority} PRIORITY</Badge>
+          <Badge variant={inv.statusVariant as BadgeVariant}>{inv.status.toUpperCase()}</Badge>
         </div>
-        <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>
-          BATCH MISMATCH — QR&apos;d batch ≠ PIN batch · Sartor Health Co. Ltd · DORA AI flagged
-        </p>
+        <p style={{ fontSize: 12, color: 'rgba(255,255,255,.5)' }}>{inv.description || inv.desc}</p>
         <div className="hero-stats">
-          {heroStats.map((stat) => (
-            <div key={stat.label}>
-              <div className="stat-banner__label">{stat.label}</div>
-              <div
-                className={stat.large ? 'stat-banner__value' : undefined}
-                style={
-                  stat.large
-                    ? undefined
-                    : {
-                        fontSize: 15,
-                        fontWeight: 600,
-                        color: '#fff',
-                        marginTop: 4,
-                      }
-                }
-              >
-                {stat.value}
-              </div>
-            </div>
-          ))}
+          <div>
+            <div className="stat-banner__label">DORA Score</div>
+            <div className="stat-banner__value">{inv.dora}</div>
+          </div>
+          <div>
+            <div className="stat-banner__label">Opened</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginTop: 4 }}>{inv.opened}</div>
+          </div>
+          <div>
+            <div className="stat-banner__label">Product</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginTop: 4 }}>{inv.product}</div>
+          </div>
+          <div>
+            <div className="stat-banner__label">Location</div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: '#fff', marginTop: 4 }}>{inv.location}</div>
+          </div>
         </div>
       </div>
 
-      <div className="inv-action-bar">
-        <Button variant="danger" onClick={() => openModal('flag-batch-inv')}>
-          🚩 Flag Batch
-        </Button>
-        <Button variant="success" onClick={() => openModal('clear-fp')}>
-          ✓ Clear False Positive
-        </Button>
-        <Button onClick={() => openModal('evidence-bundle')}>↗ Generate Evidence Bundle</Button>
-        <select className="inp">
-          <option>OPEN</option>
-          <option>UNDER REVIEW</option>
-          <option>CLEARED</option>
-          <option>CONFIRMED COUNTERFEIT</option>
-        </select>
-        <Button onClick={() => showToast('Investigation status saved')}>Save Status</Button>
-      </div>
+      <Card style={{ marginBottom: 14 }}>
+        <InfoGrid>
+          <InfoCell label="Batch" value={inv.batch} />
+          <InfoCell label="Severity" value={inv.flag} />
+          <InfoCell label="Assigned" value={inv.officer || 'Unassigned'} />
+          <InfoCell label="Status" value={inv.status} />
+        </InfoGrid>
+      </Card>
 
-      <div className="r2">
-        <Card>
-          <div className="ct" style={{ marginBottom: 11 }}>
-            DORA AI Feature Scores{' '}
-            <span style={{ fontSize: 11, fontWeight: 400, color: 'var(--text3)' }}>
-              (Internal — Admin Only)
-            </span>
-          </div>
-          {doraFeatures.map((f) => (
-            <div key={f.label} className="frow">
-              <div style={{ flex: 1, color: 'var(--text2)' }}>{f.label}</div>
-              <div className="fbar">
-                <div className="ffill" style={{ width: `${f.score}%`, background: f.color }} />
-              </div>
-              <div
-                style={{
-                  fontFamily: "'DM Mono', monospace",
-                  fontSize: 12,
-                  minWidth: 24,
-                  textAlign: 'right',
-                  color: f.textColor,
-                }}
-              >
-                {f.score}
-              </div>
-            </div>
-          ))}
-          <div
-            style={{
-              marginTop: 10,
-              paddingTop: 10,
-              borderTop: '1px solid var(--border)',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: 8,
-            }}
-          >
-            <span style={{ fontSize: 12, color: 'var(--text2)' }}>Overall DORA Score</span>
-            <span
-              style={{
-                fontSize: 22,
-                fontWeight: 700,
-                fontFamily: "'DM Mono', monospace",
-                color: 'var(--rt)',
-              }}
-            >
-              23 / 100
-            </span>
-          </div>
-          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text3)' }}>
-            Scored by{' '}
-            <a href="https://verify.dorascan.ai" target="_blank" rel="noreferrer" style={{ color: 'var(--bt)' }}>
-              DORA AI
-            </a>{' '}
-            at scan time. Scores below 50 indicate likely counterfeit.
-          </div>
-        </Card>
-
-        <div>
-          <Card style={{ marginBottom: 11 }}>
-            <div className="ct" style={{ marginBottom: 10 }}>
-              Batch & PIN Details
-            </div>
-            <InfoGrid cols={2}>
-              <InfoCell label="Batch QR'd" value="BATCH-042" valueStyle={{ fontFamily: "'DM Mono', monospace", fontWeight: 600, color: 'var(--rt)' }} />
-              <InfoCell label="PIN Batch" value="BATCH-038" valueStyle={{ fontFamily: "'DM Mono', monospace", fontWeight: 600, color: 'var(--rt)' }} />
-              <InfoCell label="PIN Status" value="Used · Different User" valueStyle={{ fontWeight: 600, color: 'var(--at)' }} />
-              <InfoCell label="Current User" value="user_821" valueStyle={{ fontFamily: "'DM Mono', monospace" }} />
-            </InfoGrid>
-          </Card>
-
-          <Card style={{ marginBottom: 11 }}>
-            <div className="ct" style={{ marginBottom: 10 }}>
-              Device & Location Data
-            </div>
-            <div style={{ fontSize: 12, display: 'grid', gap: 5 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
-                <span style={{ color: 'var(--text3)' }}>Device fingerprint</span>
-                <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>a7#x1b4d…e41c</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
-                <span style={{ color: 'var(--text3)' }}>IP Address</span>
-                <span style={{ fontFamily: "'DM Mono', monospace" }}>182.70.245.138</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
-                <span style={{ color: 'var(--text3)' }}>GPS</span>
-                <span style={{ fontFamily: "'DM Mono', monospace" }}>31.2°N, 121.5°E</span>
-              </div>
-              <div
-                style={{
-                  marginTop: 5,
-                  padding: 7,
-                  background: 'var(--rb)',
-                  borderRadius: 5,
-                  color: 'var(--rt)',
-                  fontWeight: 500,
-                  fontSize: 11,
-                }}
-              >
-                ⚠ Pattern: 4 failed scans from this device across 4 batches in 4 days
-              </div>
-            </div>
-          </Card>
-
-          <Card>
-            <div className="ct" style={{ marginBottom: 8 }}>
-              Investigation Notes
-            </div>
-            <textarea className="inp" rows={3} placeholder="Add notes..." style={{ resize: 'vertical' }} />
-            <Button variant="secondary" size="sm" style={{ marginTop: 7 }} onClick={() => showToast('Notes saved')}>
-              Save Notes
-            </Button>
-          </Card>
+      <Card>
+        <div className="ct" style={{ marginBottom: 12 }}>
+          Add note
         </div>
-      </div>
+        <textarea
+          className="inp"
+          rows={3}
+          placeholder="Document findings, site visit notes, or consumer contact…"
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          style={{ width: '100%', marginBottom: 10 }}
+        />
+        <Button onClick={addNote}>Save Note</Button>
+        <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 10 }}>
+          Status changes and batch flags are coordinated with Sartor platform ops. Contact{' '}
+          <a href="mailto:support@sartor.ng">support@sartor.ng</a> for escalation.
+        </p>
+      </Card>
     </>
   );
 }

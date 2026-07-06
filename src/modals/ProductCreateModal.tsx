@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { productsApi } from '../api/products';
 import { Button } from '../components/ui/Button';
 import { FormGroup } from '../components/ui/FormGroup';
 import { Modal, ModalFooter } from '../components/ui/Modal';
+import { useModal, type ProductModalPayload } from '../context/ModalContext';
 import { useTenantData } from '../context/TenantDataContext';
 
 interface ProductCreateModalProps {
@@ -13,6 +14,11 @@ interface ProductCreateModalProps {
 
 export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateModalProps) {
   const { refreshProducts } = useTenantData();
+  const { getPayload } = useModal();
+  const editPayload = getPayload<ProductModalPayload>('product');
+  const isEdit = editPayload?.mode === 'edit';
+  const editId = isEdit ? editPayload.product._id : '';
+
   const [productName, setProductName] = useState('');
   const [manufacturer, setManufacturer] = useState('');
   const [barcodeNumber, setBarcodeNumber] = useState('');
@@ -20,16 +26,24 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const reset = () => {
-    setProductName('');
-    setManufacturer('');
-    setBarcodeNumber('');
-    setDescription('');
+  useEffect(() => {
+    if (!open) return;
+    if (isEdit && editPayload?.product) {
+      const p = editPayload.product;
+      setProductName(p.productName || '');
+      setManufacturer(p.manufacturer || '');
+      setBarcodeNumber(p.barcodeNumber || '');
+      setDescription(p.description || '');
+    } else {
+      setProductName('');
+      setManufacturer('');
+      setBarcodeNumber('');
+      setDescription('');
+    }
     setError('');
-  };
+  }, [open, isEdit, editPayload]);
 
   const handleClose = () => {
-    reset();
     onClose();
   };
 
@@ -41,24 +55,34 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
     setSaving(true);
     setError('');
     try {
-      await productsApi.create({
+      const body = {
         productName: productName.trim(),
         manufacturer: manufacturer.trim() || undefined,
         barcodeNumber: barcodeNumber.trim() || undefined,
         description: description.trim() || undefined,
-      });
+      };
+      if (isEdit && editId) {
+        await productsApi.update(editId, body);
+      } else {
+        await productsApi.create(body);
+      }
       await refreshProducts();
-      reset();
       onSuccess();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not create product.');
+      setError(e instanceof Error ? e.message : 'Could not save product.');
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal open={open} onClose={handleClose} title="Add Product" subtitle="Create a new SartorChain product" width={480}>
+    <Modal
+      open={open}
+      onClose={handleClose}
+      title={isEdit ? 'Edit Product' : 'Add Product'}
+      subtitle={isEdit ? 'Update product details' : 'Create a new SartorChain product'}
+      width={480}
+    >
       {error && (
         <div style={{ padding: 9, background: 'var(--rb)', borderRadius: 7, fontSize: 12, color: 'var(--rt)', marginBottom: 12 }}>
           {error}
@@ -101,7 +125,7 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
           Cancel
         </Button>
         <Button onClick={handleSubmit} disabled={saving}>
-          {saving ? 'Creating…' : 'Create Product'}
+          {saving ? 'Saving…' : isEdit ? 'Save Changes' : 'Create Product'}
         </Button>
       </ModalFooter>
     </Modal>

@@ -12,6 +12,7 @@ import { TabBar } from '../../components/ui/TabBar';
 import { TableWrap } from '../../components/ui/TableWrap';
 import { useApp } from '../../context/AppContext';
 import { useTenantData } from '../../context/TenantDataContext';
+import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { useTabs } from '../../hooks/useTabs';
 import type { CampaignAnalytics, CampaignDetail, GiftRedemption } from '../../types/gifts';
@@ -29,7 +30,8 @@ export function GiftsDetailPage() {
   const [searchParams] = useSearchParams();
   const campaignId = searchParams.get('id') || '';
   const { navigateTo, isReadOnly } = useApp();
-  const { refreshCampaigns } = useTenantData();
+  const { refreshCampaigns, giftModalNonce } = useTenantData();
+  const { openModal } = useModal();
   const { showToast } = useToast();
   const { active, setActive } = useTabs<GiftDetailTab>('pools');
 
@@ -64,7 +66,7 @@ export function GiftsDetailPage() {
       return;
     }
     load();
-  }, [campaignId, load]);
+  }, [campaignId, load, giftModalNonce]);
 
   const inventoryRows = useMemo(() => {
     if (!campaign) return [];
@@ -251,6 +253,21 @@ export function GiftsDetailPage() {
                     <div style={{ fontSize: 11, color: pool.activeLabelColor }}>{pool.subtitle}</div>
                   </div>
                   <span style={{ fontSize: 11, color: pool.activeLabelColor }}>{pool.activeLabel}</span>
+                  {!isReadOnly && campaign.status !== 'ENDED' && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        openModal('add-gift', {
+                          campaignId: campaign._id,
+                          poolId: pool._id,
+                          poolName: pool.name,
+                        })
+                      }
+                    >
+                      + Add gift
+                    </Button>
+                  )}
                 </div>
                 <div style={{ padding: '13px 16px' }}>
                   <div className="pool-gifts-grid">
@@ -298,6 +315,24 @@ export function GiftsDetailPage() {
                               </div>
                             </div>
                           </div>
+                          {!isReadOnly && campaign.status !== 'ENDED' && (
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() =>
+                                openModal('replenish', {
+                                  campaignId: campaign._id,
+                                  poolId: pool._id,
+                                  giftId: gift._id,
+                                  giftName: gift.name,
+                                  poolName: pool.name,
+                                  remaining: gift.remaining,
+                                })
+                              }
+                            >
+                              Replenish
+                            </Button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -326,6 +361,7 @@ export function GiftsDetailPage() {
                     <th>Issued</th>
                     <th>Redeemed</th>
                     <th>Weight</th>
+                    {!isReadOnly && <th></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -340,6 +376,26 @@ export function GiftsDetailPage() {
                       <td>{row.issued}</td>
                       <td>{row.redeemed}</td>
                       <td>{row.weight}</td>
+                      {!isReadOnly && (
+                        <td>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() =>
+                              openModal('replenish', {
+                                campaignId: campaign!._id,
+                                poolId: row.poolId,
+                                giftId: row.giftId,
+                                giftName: row.name,
+                                poolName: row.poolName,
+                                remaining: row.remaining,
+                              })
+                            }
+                          >
+                            Replenish
+                          </Button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

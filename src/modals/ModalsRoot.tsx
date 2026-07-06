@@ -18,11 +18,14 @@ import { CampaignWizardModal } from './CampaignWizardModal';
 import { DoraUploadModal } from './DoraUploadModal';
 import { InviteMemberModal } from './InviteMemberModal';
 import { ProductCreateModal } from './ProductCreateModal';
+import { FlagBatchModal } from './FlagBatchModal';
+import { ReplenishGiftModal } from './ReplenishGiftModal';
+import { AddGiftModal } from './AddGiftModal';
 
 export function ModalsRoot() {
   const { isOpen, closeModal } = useModal();
   const { currency, setCurrency } = useApp();
-  const { doraUploadTarget, refreshBatches, products, refreshCampaigns } = useTenantData();
+  const { doraUploadTarget, refreshBatches, products, refreshCampaigns, refreshInvoices, notifyGiftChange } = useTenantData();
   const { showToast } = useToast();
 
   const close = (id: Parameters<typeof closeModal>[0]) => () => closeModal(id);
@@ -82,45 +85,32 @@ export function ModalsRoot() {
       <BuyCreditsModal
         open={isOpen('buy-credits')}
         onClose={close('buy-credits')}
-        onSubmit={() => {
+        onSuccess={async (invoiceId) => {
           closeModal('buy-credits');
-          showToast('Purchase request submitted. An invoice will be emailed within 1 business day.');
+          await refreshInvoices();
+          showToast(`Invoice ${invoiceId} created. Pay from Settings or contact sales@sartor.ng.`, 'success');
+        }}
+      />
+
+      <FlagBatchModal
+        onSuccess={() => showToast('Investigation opened for this batch.', 'success')}
+      />
+
+      <ReplenishGiftModal
+        onSuccess={() => {
+          notifyGiftChange();
+          showToast('Stock replenished.', 'success');
+        }}
+      />
+
+      <AddGiftModal
+        onSuccess={() => {
+          notifyGiftChange();
+          showToast('Gift added to pool.', 'success');
         }}
       />
 
       <ReportsModal open={isOpen('reports')} onClose={close('reports')} showToast={showToast} />
-
-      <Modal open={isOpen('flag-batch-inv')} onClose={close('flag-batch-inv')} title="Flag Batch" width={460}>
-        <div style={{ padding: 12, background: 'var(--rb)', borderRadius: 8, marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--rt)', marginBottom: 4 }}>
-            ⚠ This will lock BATCH-038 for loyalty point accumulation
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--rt)' }}>
-            Consumers scanning products from this batch will not earn loyalty points until resolved.
-          </div>
-        </div>
-        <FormGroup label="Flag Severity">
-          <select className="inp">
-            <option>P1 — Critical (batch mismatch / confirmed fraud)</option>
-            <option>P2 — High (cloned PIN suspicion)</option>
-            <option>P3 — Medium (pattern anomaly)</option>
-          </select>
-        </FormGroup>
-        <FormGroup label="Flag Reason *">
-          <textarea className="inp" rows={3} placeholder="Describe the reason for flagging this batch..." style={{ resize: 'vertical' }} />
-        </FormGroup>
-        <div className="twrap" style={{ padding: '8px 0' }}>
-          <div>
-            <div className="tlbl" style={{ fontSize: 12 }}>Notify Account Owner</div>
-            <div className="tdesc">Send immediate email alert to Nnamdi Okafor</div>
-          </div>
-          <Toggle defaultOn />
-        </div>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('flag-batch-inv')}>Cancel</Button>
-          <Button variant="danger" onClick={() => { closeModal('flag-batch-inv'); showToast('BATCH-038 flagged. Investigation updated. Account Owner notified.'); }}>Flag Batch</Button>
-        </ModalFooter>
-      </Modal>
 
       <Modal open={isOpen('clear-fp')} onClose={close('clear-fp')} title="Clear as False Positive" width={440}>
         <div style={{ padding: 12, background: 'var(--gb)', borderRadius: 8, marginBottom: 14 }}>
@@ -331,59 +321,6 @@ export function ModalsRoot() {
         </ModalFooter>
       </Modal>
 
-      <Modal open={isOpen('replenish')} onClose={close('replenish')} title="Replenish Gift Stock" width={420} subtitle="Pool 3 — Premium Membership">
-        <div style={{ display: 'flex', gap: 12, padding: 12, background: 'var(--bg)', borderRadius: 8, marginBottom: 14, fontSize: 12 }}>
-          <div><div style={{ color: 'var(--text3)' }}>Current stock</div><div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace", color: 'var(--at)' }}>4</div></div>
-          <div><div style={{ color: 'var(--text3)' }}>Waitlisted</div><div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>0</div></div>
-          <div><div style={{ color: 'var(--text3)' }}>Total issued</div><div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>56</div></div>
-        </div>
-        <FormGroup label="Add Quantity *">
-          <input type="number" className="inp" placeholder="How many units to add?" />
-        </FormGroup>
-        <FormGroup label="Replenishment Notes (optional)">
-          <input className="inp" placeholder="e.g. Batch 3 stock received from supplier" />
-        </FormGroup>
-        <div className="twrap" style={{ padding: '10px 0', borderTop: '1px solid var(--bg2)', marginTop: 4 }}>
-          <div>
-            <div className="tlbl">Release to PENDING_STOCK waitlist</div>
-            <div className="tdesc">Assign gifts to waiting consumers in chronological order</div>
-          </div>
-          <Toggle defaultOn />
-        </div>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('replenish')}>Cancel</Button>
-          <Button onClick={() => { closeModal('replenish'); showToast('Stock replenished. Gifts assigned to waitlist consumers.'); }}>Replenish Stock</Button>
-        </ModalFooter>
-      </Modal>
-
-      <Modal open={isOpen('add-gift')} onClose={close('add-gift')} title="Add Gift to Pool" width={460} subtitle="Multiple gifts in one pool = weighted random selection">
-        <FormGroup label="Gift Name *">
-          <input className="inp" placeholder="e.g. ₦500 Store Credit, Free T-Shirt" />
-        </FormGroup>
-        <FormGroup label="Gift Description">
-          <input className="inp" placeholder="Brief description for consumer-facing screens" />
-        </FormGroup>
-        <div className="fg">
-          <label className="fi">Gift Image</label>
-          <div className="imgzone">
-            <div className="ic">🖼</div>
-            <p>Upload gift image</p>
-            <small>PNG, JPG · Max 5MB</small>
-          </div>
-        </div>
-        <div className="fr2">
-          <FormGroup label="Total Quantity *">
-            <input type="number" className="inp" placeholder="Total stock available" />
-          </FormGroup>
-          <FormGroup label="Probability Weight">
-            <input type="number" className="inp" placeholder="1.0" defaultValue={1.0} />
-          </FormGroup>
-        </div>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('add-gift')}>Cancel</Button>
-          <Button onClick={() => { closeModal('add-gift'); showToast('Gift added to pool.'); }}>Add Gift</Button>
-        </ModalFooter>
-      </Modal>
     </>
   );
 }

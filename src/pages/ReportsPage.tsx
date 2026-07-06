@@ -4,8 +4,11 @@ import { Card } from '../components/ui/Card';
 import { FormGroup } from '../components/ui/FormGroup';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Toggle } from '../components/ui/Toggle';
+import { useApp } from '../context/AppContext';
 import { useModal } from '../context/ModalContext';
+import { useTenantData } from '../context/TenantDataContext';
 import { useToast } from '../context/ToastContext';
+import { downloadCsv, downloadPdfReport } from '../utils/export';
 
 const REPORT_DESCRIPTIONS: Record<string, string> = {
   auth: 'Scan volume, authentication rate, and outcome breakdown by SKU and date range.',
@@ -19,8 +22,81 @@ const REPORT_DESCRIPTIONS: Record<string, string> = {
 export function ReportsPage() {
   const { openModal } = useModal();
   const { showToast } = useToast();
+  const { companyName } = useApp();
+  const { analytics, investigations, products, campaigns, invoices } = useTenantData();
   const [reportType, setReportType] = useState('');
   const [format, setFormat] = useState<'csv' | 'pdf'>('csv');
+
+  const generate = () => {
+    if (!reportType) {
+      showToast('Select a report type');
+      return;
+    }
+    const title = REPORT_DESCRIPTIONS[reportType] ? reportType : 'report';
+    const stamp = new Date().toISOString().slice(0, 10);
+
+    if (reportType === 'auth' && analytics) {
+      const headers = ['Metric', 'Value'];
+      const rows = [
+        ['Total scans (30d)', analytics.kpis.totalScans],
+        ['Auth rate', analytics.kpis.authRate != null ? `${analytics.kpis.authRate}%` : '—'],
+        ['Fraud alerts', analytics.kpis.fraudAlerts],
+        ['Active consumers', analytics.kpis.activeConsumers],
+        ['PIN credits', analytics.kpis.pinCredits],
+        ['SMS credits', analytics.kpis.smsCredits],
+      ];
+      if (format === 'csv') downloadCsv(`auth-summary-${stamp}.csv`, headers, rows);
+      else
+        downloadPdfReport({
+          title: 'Authentication Summary',
+          subtitle: 'Last 30 days',
+          company: companyName,
+          headers,
+          rows,
+        });
+    } else if (reportType === 'fraud') {
+      const headers = ['ID', 'Severity', 'Batch', 'Product', 'Status'];
+      const rows = investigations.map((i) => [i.id, i.flag, i.batch, i.product, i.status]);
+      if (format === 'csv') downloadCsv(`fraud-investigations-${stamp}.csv`, headers, rows);
+      else
+        downloadPdfReport({
+          title: 'Fraud & Investigation Report',
+          company: companyName,
+          headers,
+          rows,
+          summary: [{ label: 'Open cases', value: String(investigations.filter((i) => i.status !== 'Closed').length) }],
+        });
+    } else if (reportType === 'batch') {
+      const headers = ['Product', 'Batches', 'Scans', 'Auth rate'];
+      const rows = (analytics?.topProducts || []).map((p) => [
+        p.name,
+        p.batches,
+        p.scans,
+        p.authRate != null ? `${p.authRate}%` : '—',
+      ]);
+      if (format === 'csv') downloadCsv(`batch-performance-${stamp}.csv`, headers, rows);
+      else downloadPdfReport({ title: 'Batch Performance', company: companyName, headers, rows });
+    } else if (reportType === 'loyalty') {
+      const headers = ['Campaign', 'Status', 'Pools', 'Redeemed'];
+      const rows = campaigns.map((c) => [c.name, c.status, c.pools, c.redeemed]);
+      if (format === 'csv') downloadCsv(`loyalty-${stamp}.csv`, headers, rows);
+      else downloadPdfReport({ title: 'Loyalty & Redemptions', company: companyName, headers, rows });
+    } else if (reportType === 'credits') {
+      const headers = ['Invoice', 'Description', 'Amount', 'Status'];
+      const rows = invoices.map((i) => [i.invoiceId, i.description, i.amount, i.status]);
+      if (format === 'csv') downloadCsv(`credits-billing-${stamp}.csv`, headers, rows);
+      else downloadPdfReport({ title: 'Credit Usage & Billing', company: companyName, headers, rows });
+    } else if (reportType === 'geo') {
+      showToast('Geo report will populate when location data is available on scans.');
+      return;
+    } else {
+      const headers = ['Product'];
+      const rows = products.map((p) => [p.productName || '—']);
+      if (format === 'csv') downloadCsv(`${title}-${stamp}.csv`, headers, rows);
+      else downloadPdfReport({ title: 'Platform Report', company: companyName, headers, rows });
+    }
+    showToast('Report downloaded', 'success');
+  };
 
   return (
     <>
@@ -72,10 +148,9 @@ export function ReportsPage() {
             <FormGroup label="SKU Filter (optional — leave blank for all products)">
               <select className="inp">
                 <option value="">All Products</option>
-                <option>Sartor Hand Sanitiser 500ml (SHS-001)</option>
-                <option>Carabiner Holder Pack (CHP-002)</option>
-                <option>Silicone Holder/Hook Pack (SHP-003)</option>
-                <option>Sartor Hand Sanitiser 250ml (SHS-004)</option>
+                {products.map((p) => (
+                  <option key={p._id}>{p.productName}</option>
+                ))}
               </select>
             </FormGroup>
             <FormGroup label="Export Format">
@@ -112,7 +187,7 @@ export function ReportsPage() {
             </FormGroup>
             <Button
               style={{ width: '100%', justifyContent: 'center', marginTop: 4 }}
-              onClick={() => showToast('Report generated and downloaded')}
+              onClick={generate}
             >
               Generate & Download Report
             </Button>

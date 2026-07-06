@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader } from '../../components/ui/Card';
@@ -13,6 +14,7 @@ import { useTenantData } from '../../context/TenantDataContext';
 import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { billingApi } from '../../api/billing';
+import { authApi } from '../../api/auth';
 import { useAuthStore } from '../../store/authStore';
 import { formatApiDate, invoiceStatusVariant } from '../../utils/mappers';
 import { useTabs } from '../../hooks/useTabs';
@@ -34,6 +36,29 @@ export function OwnerSettingsPage() {
   const { openModal } = useModal();
   const { showToast } = useToast();
   const { active, setActive } = useTabs<SettingsTab>('general');
+  const [pwOld, setPwOld] = useState('');
+  const [pw1, setPw1] = useState('');
+  const [pw2, setPw2] = useState('');
+  const [pwSaving, setPwSaving] = useState(false);
+
+  const changePassword = async () => {
+    if (!pwOld || !pw1 || pw1 !== pw2) {
+      showToast(pw1 !== pw2 ? 'New passwords do not match.' : 'Fill in all password fields.', 'warn');
+      return;
+    }
+    setPwSaving(true);
+    try {
+      await authApi.changePassword(pwOld, pw1, pw2);
+      setPwOld('');
+      setPw1('');
+      setPw2('');
+      showToast('Password updated successfully.', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not update password.', 'error');
+    } finally {
+      setPwSaving(false);
+    }
+  };
 
   const payInvoice = async (invoiceId: string) => {
     try {
@@ -203,7 +228,44 @@ export function OwnerSettingsPage() {
               <option value="EUR">EUR — Euro (€)</option>
             </select>
           </FormGroup>
-          <Button style={{ marginTop: 6 }} onClick={() => showToast('Settings saved successfully')}>
+          <div style={{ borderTop: '1px solid var(--border)', marginTop: 16, paddingTop: 16 }}>
+            <div className="ct" style={{ marginBottom: 12, fontSize: 14 }}>
+              Change Password
+            </div>
+            <FormGroup label="Current Password">
+              <input
+                className="inp"
+                type="password"
+                value={pwOld}
+                onChange={(e) => setPwOld(e.target.value)}
+                autoComplete="current-password"
+              />
+            </FormGroup>
+            <div className="fr2">
+              <FormGroup label="New Password">
+                <input
+                  className="inp"
+                  type="password"
+                  value={pw1}
+                  onChange={(e) => setPw1(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </FormGroup>
+              <FormGroup label="Confirm Password">
+                <input
+                  className="inp"
+                  type="password"
+                  value={pw2}
+                  onChange={(e) => setPw2(e.target.value)}
+                  autoComplete="new-password"
+                />
+              </FormGroup>
+            </div>
+            <Button variant="secondary" onClick={changePassword} disabled={pwSaving}>
+              {pwSaving ? 'Updating…' : 'Update Password'}
+            </Button>
+          </div>
+          <Button style={{ marginTop: 6 }} onClick={() => showToast('Profile fields are managed by Sartor during onboarding.')}>
             Save Changes
           </Button>
         </Card>

@@ -153,7 +153,7 @@ export function ProductDetailPage() {
             ↗ Consumer Page
           </a>
           {!isReadOnly && (
-            <Button size="sm" onClick={() => openModal('product')}>
+            <Button size="sm" onClick={() => openModal('product', { mode: 'edit', product })}>
               Edit Product
             </Button>
           )}

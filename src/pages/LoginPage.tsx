@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 import { ROLES } from '../constants/roles';
+import { mapLoginToProfile } from '../utils/mapAuth';
 
 function EyeIcon({ open }: { open: boolean }) {
   if (open) {
@@ -32,9 +33,13 @@ export function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const user = useAuthStore((s) => s.user);
+
   useEffect(() => {
-    if (token) navigate(ROLES.owner.defaultPath, { replace: true });
-  }, [token, navigate]);
+    if (token && user?.consoleRole) {
+      navigate(ROLES[user.consoleRole].defaultPath, { replace: true });
+    }
+  }, [token, user?.consoleRole, navigate]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -42,35 +47,13 @@ export function LoginPage() {
     setLoading(true);
     try {
       const data = await authApi.login(email, password);
-      if (data.accountType !== 'admin') {
-        setError('Use your SartorChain client admin account (Owner login).');
+      if (data.accountType !== 'admin' && data.accountType !== 'user') {
+        setError('Use your SartorChain client admin account.');
         return;
       }
-      setAuth({
-        _id: data._id,
-        fullName: data.fullName,
-        email: data.email,
-        token: data.token,
-        accountType: 'admin',
-        role: data.role,
-        clientCode: data.clientCode,
-        rcNumber: data.rcNumber,
-        industry: data.industry,
-        phone: data.phone,
-        address: data.address,
-        scBand: data.scBand,
-        engagement: data.engagement,
-        smsCredits: data.smsCredits,
-        pinCredits: data.pinCredits,
-        verifyDomain: data.verifyDomain,
-        domainTier: data.domainTier,
-        crmEnabled: data.crmEnabled,
-        crmTier: data.crmTier,
-        crmSeats: data.crmSeats,
-        campaignStacking: data.campaignStacking,
-        platformStatus: data.platformStatus,
-      });
-      navigate(ROLES.owner.defaultPath);
+      const profile = mapLoginToProfile(data);
+      setAuth(profile);
+      navigate(ROLES[profile.consoleRole].defaultPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Check email and password.');
     } finally {
@@ -115,7 +98,7 @@ export function LoginPage() {
           <p className="login-panel-kicker">CLIENT ADMIN</p>
           <h2 className="login-panel-title">Welcome back</h2>
           <p className="login-panel-sub">
-            Sign in with the admin account created when your company was onboarded.
+            Sign in as account owner or invited team member (Batch, Brand, or Investigations).
           </p>
 
           {error && <div className="login-error">{error}</div>}

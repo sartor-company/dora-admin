@@ -10,7 +10,7 @@ export function formatApiDate(ts?: number): string {
   });
 }
 
-export function productDisplayRow(p: ApiProduct) {
+export function productDisplayRow(p: ApiProduct, stats?: { scans: number; authRate: number | null }) {
   const batchCount = p.batches?.length ?? 0;
   return {
     id: p._id,
@@ -18,9 +18,14 @@ export function productDisplayRow(p: ApiProduct) {
     sku: p.batchId || p.barcodeNumber || '—',
     category: p.manufacturer || '—',
     batches: batchCount,
-    scans: 0,
-    authRate: '—',
-    authRateColor: 'var(--gt)',
+    scans: stats?.scans ?? 0,
+    authRate: stats?.authRate != null ? `${stats.authRate}%` : '—',
+    authRateColor:
+      stats?.authRate != null && stats.authRate < 80
+        ? 'var(--rt)'
+        : stats?.authRate != null && stats.authRate < 95
+          ? 'var(--at)'
+          : 'var(--gt)',
     doraStatus: batchCount > 0 ? 'Active' : 'Pending',
     doraVariant: (batchCount > 0 ? 'bg' : 'ba') as BadgeVariant,
     codeType: p.barcodeNumber ? 'GS1' : 'Sartor',
@@ -28,7 +33,10 @@ export function productDisplayRow(p: ApiProduct) {
   };
 }
 
-export function batchDisplayRow(b: ApiBatch) {
+export function batchDisplayRow(
+  b: ApiBatch,
+  stats?: { scans: number; auths: number; authRate: number | null },
+) {
   const productName =
     typeof b.product === 'object' && b.product ? b.product.productName : '—';
   const productId =
@@ -45,10 +53,10 @@ export function batchDisplayRow(b: ApiBatch) {
     qty: b.quantity,
     status,
     statusVariant: (b.status === 'active' ? 'bg' : 'bx') as BadgeVariant,
-    auths: '—',
-    scans: '—',
-    delivery: '—',
-    deliveryVariant: 'bx' as BadgeVariant,
+    auths: stats?.auths != null ? String(stats.auths) : '—',
+    scans: stats?.scans != null ? String(stats.scans) : '—',
+    delivery: stats?.scans != null && stats.scans > 0 ? 'Active' : '—',
+    deliveryVariant: (stats?.scans != null && stats.scans > 0 ? 'bg' : 'bx') as BadgeVariant,
     dora: hasImage ? 'Uploaded' : 'Pending',
     doraVariant: (hasImage ? 'bg' : 'ba') as BadgeVariant,
     needsUpload: !hasImage,

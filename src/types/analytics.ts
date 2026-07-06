@@ -61,8 +61,21 @@ export interface LoyaltyAnalytics {
 
 export interface GeoAnalytics {
   days: number;
-  regions: unknown[];
+  regions: GeoRegion[];
+  totalScans?: number;
   note?: string;
+  mapCenter?: { lat: number; lng: number };
+  mapZoom?: number;
+}
+
+export interface GeoRegion {
+  state: string;
+  scans: number;
+  auths: number;
+  authRate: number | null;
+  intensity?: number;
+  lat?: number;
+  lng?: number;
 }
 
 export interface BatchAnalytics {

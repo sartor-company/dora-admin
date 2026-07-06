@@ -2,11 +2,20 @@ import { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ROLES } from '../../constants/roles';
 import { useApp } from '../../context/AppContext';
+import { useTenantData } from '../../context/TenantDataContext';
 import { NavIcon } from '../icons/NavIcon';
 
 export function Sidebar() {
   const { role, sidebarOpen, closeSidebar, companyName, crmEnabled } = useApp();
+  const { navBadges } = useTenantData();
   const config = ROLES[role];
+
+  const badgeFor = (path: string): number | undefined => {
+    if (path.includes('/brand/fraud')) return navBadges.fraud;
+    if (path.includes('/investigations')) return navBadges.investigations;
+    if (path.includes('/notifications')) return navBadges.notifications;
+    return undefined;
+  };
 
   useEffect(() => {
     document.body.style.overflow = sidebarOpen ? 'hidden' : '';
@@ -34,7 +43,9 @@ export function Sidebar() {
           {config.nav.map((section) => (
             <div className="nsec" key={section.title}>
               <div className="nlbl">{section.title}</div>
-              {section.items.map((item) => (
+              {section.items.map((item) => {
+                const count = badgeFor(item.path);
+                return (
                 <NavLink
                   key={`${item.path}-${item.label}`}
                   to={item.path}
@@ -43,9 +54,12 @@ export function Sidebar() {
                 >
                   <NavIcon name={item.icon} />
                   {item.label}
-                  {item.badge != null && <span className="nbadge">{item.badge}</span>}
+                  {count != null && count > 0 && (
+                    <span className="nbadge">{count}</span>
+                  )}
                 </NavLink>
-              ))}
+              );
+              })}
             </div>
           ))}
         </div>

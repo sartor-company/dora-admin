@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { ProtectedRoute } from '../components/ProtectedRoute';
+import { RoleHomeRedirect } from '../components/RoleHomeRedirect';
 import { AppLayout } from '../components/layout/AppLayout';
 import { AppProvider } from '../context/AppContext';
 import { TenantDataProvider } from '../context/TenantDataContext';
@@ -42,7 +43,7 @@ export function AppRoutes() {
             </TenantDataProvider>
           }
         >
-          <Route index element={<Navigate to="/owner/dashboard" replace />} />
+          <Route index element={<RoleHomeRedirect />} />
           <Route path="owner/dashboard" element={<OwnerDashboardPage />} />
           <Route path="owner/settings" element={<OwnerSettingsPage />} />
           <Route path="products" element={<ProductsPage />} />
