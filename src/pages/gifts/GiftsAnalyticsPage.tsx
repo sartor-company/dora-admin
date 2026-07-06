@@ -1,28 +1,69 @@
+import { useEffect, useState } from 'react';
+import { giftsApi } from '../../api/gifts';
 import { LineChartCard } from '../../components/charts/LineChartCard';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Card, CardHeader } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
 import { TableWrap } from '../../components/ui/TableWrap';
 import { KCard, KCardGrid } from '../../components/ui/KCard';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { useApp } from '../../context/AppContext';
 import { useModal } from '../../context/ModalContext';
+import type {
+  GiftAnalyticsOverview,
+  GiftCampaignComparison,
+  GiftTriggerBreakdown,
+} from '../../types/gifts';
 
 export function GiftsAnalyticsPage() {
-  const { navigateLegacy } = useApp();
+  const { navigateTo } = useApp();
   const { openModal } = useModal();
+  const [days, setDays] = useState(30);
+  const [overview, setOverview] = useState<GiftAnalyticsOverview | null>(null);
+  const [triggers, setTriggers] = useState<GiftTriggerBreakdown[]>([]);
+  const [campaigns, setCampaigns] = useState<GiftCampaignComparison[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all([
+      giftsApi.analyticsOverview(days),
+      giftsApi.analyticsByTrigger(days),
+      giftsApi.analyticsCampaigns(days),
+    ])
+      .then(([ov, tr, cmp]) => {
+        if (cancelled) return;
+        setOverview(ov);
+        setTriggers(tr);
+        setCampaigns(cmp);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [days]);
+
+  const kpis = overview?.kpis;
 
   return (
     <>
       <PageHeader
         title="Gift Engine Analytics"
-        subtitle="Performance across all campaigns · All time"
+        subtitle={`Performance across all campaigns · Last ${days} days`}
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
-            <select className="inp" style={{ width: 140 }}>
-              <option>Last 30 days</option>
-              <option>Last 90 days</option>
-              <option>All time</option>
+            <select
+              className="inp"
+              style={{ width: 140 }}
+              value={days}
+              onChange={(e) => setDays(parseInt(e.target.value, 10))}
+            >
+              <option value={30}>Last 30 days</option>
+              <option value={90}>Last 90 days</option>
+              <option value={365}>All time</option>
             </select>
             <Button variant="secondary" size="sm" onClick={() => openModal('reports')}>
               Export
@@ -31,134 +72,123 @@ export function GiftsAnalyticsPage() {
         }
       />
 
-      <KCardGrid>
-        <KCard label="Total Eligibility Events" value="1,284" trend="↑ 23% vs last month" trendType="up" />
-        <KCard label="Total Codes Generated" value="1,241" trend="96.7% fulfil rate" trendType="neu" />
-        <KCard label="Overall Redemption Rate" value="72.4%" trend="↑ 8.2% vs last month" trendType="up" />
-        <KCard label="PENDING_STOCK Events" value="25" trend="Pool 2 low stock" trendType="dn" />
-      </KCardGrid>
+      {loading && !overview ? (
+        <div style={{ padding: 24, color: 'var(--text3)' }}>Loading analytics…</div>
+      ) : (
+        <>
+          <KCardGrid>
+            <KCard
+              label="Total Eligibility Events"
+              value={String(kpis?.eligibilityEvents ?? 0)}
+              trend="From redemptions"
+              trendType="up"
+            />
+            <KCard
+              label="Total Codes Generated"
+              value={String(kpis?.codesGenerated ?? 0)}
+              trend={`${kpis?.fulfilRate ?? 0}% fulfil rate`}
+              trendType="neu"
+            />
+            <KCard
+              label="Overall Redemption Rate"
+              value={`${kpis?.redemptionRate ?? 0}%`}
+              trend="Live"
+              trendType="up"
+            />
+            <KCard
+              label="PENDING_STOCK Events"
+              value={String(kpis?.pendingStock ?? 0)}
+              trend="Low stock events"
+              trendType="dn"
+            />
+          </KCardGrid>
 
-      <div className="r2">
-        <LineChartCard title="Daily redemptions — last 30 days" />
-        <Card>
-          <div className="ct" style={{ marginBottom: 11 }}>
-            Trigger type breakdown
-          </div>
-          <div style={{ display: 'grid', gap: 8, fontSize: 12 }}>
-            <div
-              style={{
-                padding: 10,
-                background: 'var(--gb)',
-                borderRadius: 7,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 600, color: 'var(--gt)' }}>FIRST_AUTH</div>
-                <div style={{ color: 'var(--gt)' }}>352 events · 290 redeemed · 82.4% rate</div>
+          <div className="r2">
+            <LineChartCard
+              title={`Daily redemptions — last ${days} days`}
+              labels={overview?.chart.labels}
+              data={overview?.chart.data}
+            />
+            <Card>
+              <div className="ct" style={{ marginBottom: 11 }}>
+                Trigger type breakdown
               </div>
-              <Badge variant="bg">Highest rate</Badge>
-            </div>
-            <div
-              style={{
-                padding: 10,
-                background: 'var(--bb)',
-                borderRadius: 7,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 600, color: 'var(--bt)' }}>NTH_AUTH</div>
-                <div style={{ color: 'var(--bt)' }}>
-                  815 events · 543 redeemed · 66.6% rate · 25 PENDING_STOCK
-                </div>
-              </div>
-              <Badge variant="ba">Low stock</Badge>
-            </div>
-            <div
-              style={{
-                padding: 10,
-                background: 'var(--ab)',
-                borderRadius: 7,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 600, color: 'var(--at)' }}>TOP_SCANNER</div>
-                <div style={{ color: 'var(--at)' }}>117 events · 80 distributed · 68.4% rate</div>
-              </div>
-              <Badge variant="bg">On track</Badge>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader title="Campaign performance comparison" />
-        <TableWrap minWidth={720}>
-        <table>
-          <thead>
-            <tr>
-              <th>Campaign</th>
-              <th>Scope</th>
-              <th>Status</th>
-              <th>Events</th>
-              <th>Codes</th>
-              <th>Redeemed</th>
-              <th>Rate</th>
-              <th>PENDING</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[
-              { name: 'Welcome & Loyalty — Default', scope: 'CLIENT_WIDE', scopeBg: 'var(--pb)', scopeColor: 'var(--pt)', events: 892, codes: 867, redeemed: 645, rate: '72.4%', rateColor: 'var(--gt)', pending: '25', pendingColor: 'var(--at)', clickable: true },
-              { name: 'Sanitiser 500ml Launch Promo', scope: 'SKU_SPECIFIC', scopeBg: 'var(--bb)', scopeColor: 'var(--bt)', events: 312, codes: 296, redeemed: 228, rate: '74.0%', rateColor: 'var(--at)', pending: '0', pendingColor: 'var(--text3)', clickable: true },
-              { name: 'Carabiner Bundle Reward', scope: 'SKU_SPECIFIC', scopeBg: 'var(--bb)', scopeColor: 'var(--bt)', events: 80, codes: 78, redeemed: 74, rate: '92.5%', rateColor: 'var(--gt)', pending: '0', pendingColor: 'var(--text3)', clickable: false },
-            ].map((row) => (
-              <tr
-                key={row.name}
-                className={row.clickable ? 'cl' : undefined}
-                onClick={() => row.clickable && navigateLegacy('pg-gifts-detail')}
-              >
-                <td>
-                  <strong>{row.name}</strong>
-                </td>
-                <td>
-                  <span
+              <div style={{ display: 'grid', gap: 8, fontSize: 12 }}>
+                {triggers.map((t) => (
+                  <div
+                    key={t.trigger}
                     style={{
-                      fontSize: 10,
-                      fontWeight: 600,
-                      padding: '2px 5px',
-                      borderRadius: 3,
-                      background: row.scopeBg,
-                      color: row.scopeColor,
+                      padding: 10,
+                      background: t.trigger === 'FIRST_AUTH' ? 'var(--gb)' : 'var(--bb)',
+                      borderRadius: 7,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
                     }}
                   >
-                    {row.scope}
-                  </span>
-                </td>
-                <td>
-                  <Badge variant="bg">Active</Badge>
-                </td>
-                <td>{row.events}</td>
-                <td>{row.codes}</td>
-                <td>{row.redeemed}</td>
-                <td style={{ color: row.rateColor, fontWeight: 600 }}>{row.rate}</td>
-                <td style={{ color: row.pendingColor, fontWeight: row.pending !== '0' ? 600 : undefined }}>
-                  {row.pending}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </TableWrap>
-      </Card>
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{t.trigger}</div>
+                      <div>
+                        {t.events} events · {t.redeemed} redeemed · {t.rate}% rate
+                        {t.pendingStock > 0 ? ` · ${t.pendingStock} PENDING_STOCK` : ''}
+                      </div>
+                    </div>
+                    {t.pendingStock > 0 ? (
+                      <Badge variant="ba">Low stock</Badge>
+                    ) : t.rate > 70 ? (
+                      <Badge variant="bg">Strong</Badge>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+
+          <Card style={{ marginTop: 12 }}>
+            <div className="ct" style={{ marginBottom: 11 }}>
+              Campaign comparison
+            </div>
+            {campaigns.length === 0 ? (
+              <div style={{ padding: 16, color: 'var(--text3)' }}>No campaigns yet.</div>
+            ) : (
+              <TableWrap>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Campaign</th>
+                      <th>Scope</th>
+                      <th>Status</th>
+                      <th>Events</th>
+                      <th>Redeemed</th>
+                      <th>Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {campaigns.map((row) => (
+                      <tr
+                        key={row._id}
+                        className={row.clickable ? 'cl' : undefined}
+                        onClick={() =>
+                          row.clickable && navigateTo(`/gifts/detail?id=${row._id}`)
+                        }
+                      >
+                        <td>
+                          <strong>{row.name}</strong>
+                        </td>
+                        <td>{row.scope}</td>
+                        <td>{row.status}</td>
+                        <td>{row.events}</td>
+                        <td>{row.redeemed}</td>
+                        <td>{row.rate}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
+          </Card>
+        </>
+      )}
     </>
   );
 }

@@ -1,40 +1,56 @@
-import { useState } from 'react';
 import { Button } from '../components/ui/Button';
 import { FormGroup } from '../components/ui/FormGroup';
 
-interface PoolGift {
+export interface WizardPoolGift {
   id: string;
   name: string;
   qty: string;
   weight: string;
 }
 
-interface Pool {
+export interface WizardPool {
   id: string;
+  name: string;
   trigger: string;
-  gifts: PoolGift[];
+  nthValue: string;
+  leaderboardPeriod: string;
+  winnerCount: string;
+  gifts: WizardPoolGift[];
 }
 
-export function CampaignPoolBuilder() {
-  const [pools, setPools] = useState<Pool[]>([
-    { id: 'pool-1', trigger: '', gifts: [] },
-  ]);
+interface CampaignPoolBuilderProps {
+  pools: WizardPool[];
+  onChange: (pools: WizardPool[]) => void;
+}
 
+export function CampaignPoolBuilder({ pools, onChange }: CampaignPoolBuilderProps) {
   const addPool = () => {
-    setPools((p) => [...p, { id: `pool-${Date.now()}`, trigger: '', gifts: [] }]);
+    onChange([
+      ...pools,
+      {
+        id: `pool-${Date.now()}`,
+        name: `Pool ${pools.length + 1}`,
+        trigger: '',
+        nthValue: '',
+        leaderboardPeriod: 'CALENDAR_MONTH',
+        winnerCount: '10',
+        gifts: [],
+      },
+    ]);
+  };
+
+  const updatePool = (poolId: string, patch: Partial<WizardPool>) => {
+    onChange(pools.map((pool) => (pool.id === poolId ? { ...pool, ...patch } : pool)));
   };
 
   const removePool = (id: string) => {
-    setPools((p) => (p.length > 1 ? p.filter((x) => x.id !== id) : p));
-  };
-
-  const setTrigger = (poolId: string, trigger: string) => {
-    setPools((p) => p.map((pool) => (pool.id === poolId ? { ...pool, trigger } : pool)));
+    if (pools.length <= 1) return;
+    onChange(pools.filter((x) => x.id !== id));
   };
 
   const addGift = (poolId: string) => {
-    setPools((p) =>
-      p.map((pool) =>
+    onChange(
+      pools.map((pool) =>
         pool.id === poolId
           ? {
               ...pool,
@@ -48,9 +64,22 @@ export function CampaignPoolBuilder() {
     );
   };
 
+  const updateGift = (poolId: string, giftId: string, patch: Partial<WizardPoolGift>) => {
+    onChange(
+      pools.map((pool) =>
+        pool.id === poolId
+          ? {
+              ...pool,
+              gifts: pool.gifts.map((g) => (g.id === giftId ? { ...g, ...patch } : g)),
+            }
+          : pool,
+      ),
+    );
+  };
+
   const removeGift = (poolId: string, giftId: string) => {
-    setPools((p) =>
-      p.map((pool) =>
+    onChange(
+      pools.map((pool) =>
         pool.id === poolId
           ? { ...pool, gifts: pool.gifts.filter((g) => g.id !== giftId) }
           : pool,
@@ -87,11 +116,18 @@ export function CampaignPoolBuilder() {
               Remove
             </Button>
           </div>
+          <FormGroup label="Pool Name *">
+            <input
+              className="inp"
+              value={pool.name}
+              onChange={(e) => updatePool(pool.id, { name: e.target.value })}
+            />
+          </FormGroup>
           <FormGroup label="Trigger Type *">
             <select
               className="inp"
               value={pool.trigger}
-              onChange={(e) => setTrigger(pool.id, e.target.value)}
+              onChange={(e) => updatePool(pool.id, { trigger: e.target.value })}
             >
               <option value="">Select trigger type...</option>
               <option value="FIRST_AUTH">FIRST_AUTH — Consumer&apos;s 1st authentication</option>
@@ -101,19 +137,34 @@ export function CampaignPoolBuilder() {
           </FormGroup>
           {pool.trigger === 'NTH_AUTH' && (
             <FormGroup label="Trigger Value (Nth scan) *">
-              <input type="number" className="inp" placeholder="e.g. 10 for 10th authentication" />
+              <input
+                type="number"
+                className="inp"
+                value={pool.nthValue}
+                onChange={(e) => updatePool(pool.id, { nthValue: e.target.value })}
+                placeholder="e.g. 10 for 10th authentication"
+              />
             </FormGroup>
           )}
           {pool.trigger === 'TOP_SCANNER' && (
             <div className="fr2">
               <FormGroup label="Leaderboard Period *">
-                <select className="inp">
-                  <option>CALENDAR_MONTH</option>
-                  <option>CAMPAIGN_PERIOD</option>
+                <select
+                  className="inp"
+                  value={pool.leaderboardPeriod}
+                  onChange={(e) => updatePool(pool.id, { leaderboardPeriod: e.target.value })}
+                >
+                  <option value="CALENDAR_MONTH">CALENDAR_MONTH</option>
+                  <option value="CAMPAIGN_PERIOD">CAMPAIGN_PERIOD</option>
                 </select>
               </FormGroup>
               <FormGroup label="Winner Count *">
-                <input type="number" className="inp" defaultValue={10} />
+                <input
+                  type="number"
+                  className="inp"
+                  value={pool.winnerCount}
+                  onChange={(e) => updatePool(pool.id, { winnerCount: e.target.value })}
+                />
               </FormGroup>
             </div>
           )}
@@ -141,10 +192,21 @@ export function CampaignPoolBuilder() {
                 >
                   <div className="fr2" style={{ marginBottom: 8 }}>
                     <FormGroup label="Gift Name *">
-                      <input className="inp" placeholder="e.g. ₦500 Store Credit" />
+                      <input
+                        className="inp"
+                        value={gift.name}
+                        onChange={(e) => updateGift(pool.id, gift.id, { name: e.target.value })}
+                        placeholder="e.g. ₦500 Store Credit"
+                      />
                     </FormGroup>
                     <FormGroup label="Total Quantity *">
-                      <input type="number" className="inp" placeholder="Units available" />
+                      <input
+                        type="number"
+                        className="inp"
+                        value={gift.qty}
+                        onChange={(e) => updateGift(pool.id, gift.id, { qty: e.target.value })}
+                        placeholder="Units available"
+                      />
                     </FormGroup>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>

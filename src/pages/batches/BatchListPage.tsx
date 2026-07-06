@@ -5,14 +5,26 @@ import { FilterBar } from '../../components/ui/FilterBar';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { TableWrap } from '../../components/ui/TableWrap';
 import { useApp } from '../../context/AppContext';
+import { useTenantData } from '../../context/TenantDataContext';
 import { useModal } from '../../context/ModalContext';
-import { batches } from '../../data/mock';
 import { useTableFilter } from '../../hooks/useTableFilter';
 
 export function BatchListPage() {
-  const { isReadOnly, navigateLegacy } = useApp();
+  const { isReadOnly, navigateWithQuery } = useApp();
+  const { batchRows, loading, setDoraUploadTarget } = useTenantData();
   const { openModal } = useModal();
-  const { query, setQuery, filtered } = useTableFilter(batches, ['id', 'product', 'status']);
+  const { query, setQuery, filtered } = useTableFilter(batchRows, ['id', 'product', 'status']);
+
+  const openDoraUpload = (row: (typeof batchRows)[0]) => {
+    if (!row.productId) return;
+    setDoraUploadTarget({
+      batchId: row._id,
+      productId: row.productId,
+      batchNumber: row.id,
+      productName: row.product,
+    });
+    openModal('dora');
+  };
 
   return (
     <>
@@ -34,76 +46,84 @@ export function BatchListPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <select className="inp">
-            <option>All Statuses</option>
-            <option>Active</option>
-            <option>Pending Model</option>
-            <option>Training</option>
-            <option>Closed</option>
-          </select>
         </FilterBar>
-        <TableWrap minWidth={880}>
-        <table>
-          <thead>
-            <tr>
-              <th>Batch ID</th>
-              <th>Product</th>
-              <th>Created</th>
-              <th>Qty</th>
-              <th>Status</th>
-              <th>Auths</th>
-              <th>Scans</th>
-              <th>Delivery</th>
-              <th>DORA</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((b) => (
-              <tr
-                key={b.id}
-                className="cl"
-                onClick={() => !b.needsUpload && navigateLegacy('pg-batch-detail')}
-              >
-                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{b.id}</td>
-                <td>{b.product}</td>
-                <td>{b.created}</td>
-                <td>{b.qty}</td>
-                <td>
-                  <Badge variant={b.statusVariant}>{b.status}</Badge>
-                </td>
-                <td>{b.auths}</td>
-                <td>{b.scans}</td>
-                <td>
-                  <Badge variant={b.deliveryVariant} style={{ fontSize: 10 }}>
-                    {b.delivery}
-                  </Badge>
-                </td>
-                <td>
-                  <Badge variant={b.doraVariant}>{b.dora}</Badge>
-                </td>
-                <td>
-                  {b.needsUpload ? (
-                    <Button
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openModal('dora');
-                      }}
-                    >
-                      Upload Image
-                    </Button>
-                  ) : (
-                    <Button variant="secondary" size="sm">
-                      View
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </TableWrap>
+        {loading && batchRows.length === 0 ? (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Loading batches…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+            No batches yet. {isReadOnly ? '' : 'Create a product first, then add a batch.'}
+          </div>
+        ) : (
+          <TableWrap minWidth={880}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Batch ID</th>
+                  <th>Product</th>
+                  <th>Created</th>
+                  <th>Qty</th>
+                  <th>Status</th>
+                  <th>Auths</th>
+                  <th>Scans</th>
+                  <th>Delivery</th>
+                  <th>DORA</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((b) => (
+                  <tr
+                    key={b._id}
+                    className="cl"
+                    onClick={() => !b.needsUpload && navigateWithQuery('/batches/detail', { id: b._id })}
+                  >
+                    <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{b.id}</td>
+                    <td>{b.product}</td>
+                    <td>{b.created}</td>
+                    <td>{b.qty}</td>
+                    <td>
+                      <Badge variant={b.statusVariant}>{b.status}</Badge>
+                    </td>
+                    <td>{b.auths}</td>
+                    <td>{b.scans}</td>
+                    <td>
+                      <Badge variant={b.deliveryVariant} style={{ fontSize: 10 }}>
+                        {b.delivery}
+                      </Badge>
+                    </td>
+                    <td>
+                      <Badge variant={b.doraVariant}>{b.dora}</Badge>
+                    </td>
+                    <td>
+                      {b.needsUpload ? (
+                        <Button
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openDoraUpload(b);
+                          }}
+                        >
+                          Upload Image
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigateWithQuery('/batches/detail', { id: b._id });
+                          }}
+                        >
+                          View
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TableWrap>
+        )}
       </Card>
     </>
   );

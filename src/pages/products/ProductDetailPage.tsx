@@ -1,3 +1,6 @@
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { productsApi } from '../../api/products';
 import { LineChartCard } from '../../components/charts/LineChartCard';
 import { Badge } from '../../components/ui/Badge';
 import { BackLink } from '../../components/ui/BackLink';
@@ -7,8 +10,11 @@ import { KCard, KCardGrid } from '../../components/ui/KCard';
 import { TabBar } from '../../components/ui/TabBar';
 import { TableWrap } from '../../components/ui/TableWrap';
 import { useApp } from '../../context/AppContext';
+import { useTenantData } from '../../context/TenantDataContext';
 import { useModal } from '../../context/ModalContext';
 import { useTabs } from '../../hooks/useTabs';
+import type { ApiProduct } from '../../types/api';
+import { batchDisplayRow, formatApiDate, scanTrendChart } from '../../utils/mappers';
 
 type ProductTab = 'batches' | 'dora' | 'analytics' | 'licences';
 
@@ -20,65 +26,132 @@ const TABS = [
 ];
 
 export function ProductDetailPage() {
-  const { isReadOnly, navigateLegacy } = useApp();
+  const [searchParams] = useSearchParams();
+  const productId = searchParams.get('id') || '';
+  const { isReadOnly, navigateTo, verifyDomain, crmEnabled } = useApp();
+  const { setDoraUploadTarget, analytics } = useTenantData();
   const { openModal } = useModal();
   const { active, setActive } = useTabs<ProductTab>('batches');
+  const [product, setProduct] = useState<ApiProduct | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!productId) {
+      setLoading(false);
+      setError('No product selected.');
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    productsApi
+      .get(productId)
+      .then((p) => {
+        if (!cancelled) {
+          setProduct(p);
+          setError('');
+        }
+      })
+      .catch((e) => {
+        if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load product.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [productId]);
+
+  const batchRows = useMemo(
+    () =>
+      (product?.batches ?? []).map((b) =>
+        batchDisplayRow({ ...b, product: product as ApiProduct }),
+      ),
+    [product],
+  );
+
+  const trainedBatches = batchRows.filter((b) => !b.needsUpload);
+  const verifyUrl = product?.subdomain
+    ? `https://${product.subdomain}.${verifyDomain.replace(/^https?:\/\//, '')}`
+  : `https://${verifyDomain}`;
+
+  const openDoraForBatch = (row: (typeof batchRows)[0]) => {
+    if (!productId) return;
+    setDoraUploadTarget({
+      batchId: row._id,
+      productId,
+      batchNumber: row.id,
+      productName: product?.productName || row.product,
+    });
+    openModal('dora');
+  };
+
+  if (loading) {
+    return <div style={{ padding: 24, color: 'var(--text3)' }}>Loading product…</div>;
+  }
+
+  if (error || !product) {
+    return (
+      <>
+        <BackLink onClick={() => navigateTo('/products')}>← Back to Products</BackLink>
+        <div style={{ padding: 24, color: 'var(--rt)' }}>{error || 'Product not found.'}</div>
+      </>
+    );
+  }
 
   return (
     <>
-      <BackLink onClick={() => navigateLegacy('pg-products')}>← Back to Products</BackLink>
+      <BackLink onClick={() => navigateTo('/products')}>← Back to Products</BackLink>
 
       <div className="pghead" style={{ marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <div
-          style={{
-            width: 48,
-            height: 48,
-            background: 'var(--bg2)',
-            borderRadius: 10,
-            border: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 10,
-            color: 'var(--text3)',
-            flexShrink: 0,
-          }}
-        >
-          IMG
-        </div>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <div className="pgtitle">Sartor Hand Sanitiser 500ml</div>
-            <span
-              style={{
-                fontSize: 11,
-                background: 'var(--gb)',
-                color: 'var(--gt)',
-                padding: '2px 7px',
-                borderRadius: 4,
-                fontWeight: 600,
-              }}
-            >
-              GS1 ✓
-            </span>
-            <Badge variant="bg">Active</Badge>
-          </div>
-          <div className="pgsub">SKU: SHS-001 · Personal Care · 12 active batches</div>
-        </div>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <a
-            href="https://verify.dorascan.ai"
-            target="_blank"
-            rel="noreferrer"
-            className="btn bsec bsm"
+          <div
+            style={{
+              width: 48,
+              height: 48,
+              background: product.productImage ? `url(${product.productImage}) center/cover` : 'var(--bg2)',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 10,
+              color: 'var(--text3)',
+              flexShrink: 0,
+            }}
           >
+            {!product.productImage && 'IMG'}
+          </div>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <div className="pgtitle">{product.productName}</div>
+              {product.barcodeNumber && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    background: 'var(--gb)',
+                    color: 'var(--gt)',
+                    padding: '2px 7px',
+                    borderRadius: 4,
+                    fontWeight: 600,
+                  }}
+                >
+                  GS1 ✓
+                </span>
+              )}
+              <Badge variant={product.status === 'In-Stock' ? 'bg' : 'ba'}>{product.status || 'Active'}</Badge>
+            </div>
+            <div className="pgsub">
+              SKU: {product.batchId || product.barcodeNumber || '—'} · {product.manufacturer || '—'} ·{' '}
+              {batchRows.length} batch{batchRows.length !== 1 ? 'es' : ''}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <a href={verifyUrl} target="_blank" rel="noreferrer" className="btn bsec bsm">
             ↗ Consumer Page
           </a>
-          <Button variant="secondary" size="sm">
-            ↓ Download QR
-          </Button>
           {!isReadOnly && (
             <Button size="sm" onClick={() => openModal('product')}>
               Edit Product
@@ -88,10 +161,10 @@ export function ProductDetailPage() {
       </div>
 
       <KCardGrid>
-        <KCard label="Total Scans" value="4,880" trend="↑ 12.4% vs last month" trendType="up" />
-        <KCard label="Auth Rate" value="97.2%" trend="↑ 0.8%" trendType="up" />
-        <KCard label="Active Batches" value="12" trend="2 in training" trendType="neu" />
-        <KCard label="Open Investigations" value="1" trend="1 P1 open" trendType="dn" />
+        <KCard label="Total Quantity" value={String(product.totalQuantityAvailable ?? 0)} trend="Across all batches" trendType="neu" />
+        <KCard label="Active Batches" value={String(batchRows.length)} trend={`${trainedBatches.length} with DORA images`} trendType="neu" />
+        <KCard label="Subdomain" value={product.subdomain || '—'} trend="Consumer verify path" trendType="neu" />
+        <KCard label="CRM" value={crmEnabled ? 'Enabled' : 'Off'} trend={crmEnabled ? 'Open from sidebar' : 'Not on plan'} trendType="neu" />
       </KCardGrid>
 
       <TabBar tabs={TABS} active={active} onChange={(id) => setActive(id as ProductTab)} />
@@ -106,65 +179,67 @@ export function ProductDetailPage() {
             </div>
           )}
           <Card>
-            <TableWrap minWidth={720}>
-            <table>
-              <thead>
-                <tr>
-                  <th>Batch ID</th>
-                  <th>Created</th>
-                  <th>Qty</th>
-                  <th>Status</th>
-                  <th>Delivery</th>
-                  <th>Auths</th>
-                  <th>Auth Rate</th>
-                  <th>DORA</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { id: 'BATCH-042', created: 'Apr 1, 2026', qty: 600, delivery: '18/25', auths: 234, rate: '41.3%' },
-                  { id: 'BATCH-039', created: 'Mar 10, 2026', qty: 500, delivery: 'All delivered', auths: 310, rate: '62.0%' },
-                  { id: 'BATCH-034', created: 'Feb 18, 2026', qty: 600, delivery: 'All delivered', auths: 581, rate: '96.8%', closed: true },
-                ].map((b) => (
-                  <tr
-                    key={b.id}
-                    className="cl"
-                    onClick={() => navigateLegacy('pg-batch-detail')}
-                  >
-                    <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{b.id}</td>
-                    <td>{b.created}</td>
-                    <td>{b.qty}</td>
-                    <td>
-                      <Badge variant={b.closed ? 'bx' : 'bg'}>{b.closed ? 'Closed' : 'Active'}</Badge>
-                    </td>
-                    <td>
-                      <Badge variant="bg" style={{ fontSize: 10 }}>
-                        {b.delivery}
-                      </Badge>
-                    </td>
-                    <td>{b.auths}</td>
-                    <td style={{ color: 'var(--gt)', fontWeight: 600 }}>{b.rate}</td>
-                    <td>
-                      <Badge variant="bg">Ready</Badge>
-                    </td>
-                    <td>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigateLegacy('pg-batch-detail');
-                        }}
+            {batchRows.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>No batches for this product yet.</div>
+            ) : (
+              <TableWrap minWidth={720}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Batch ID</th>
+                      <th>Created</th>
+                      <th>Qty</th>
+                      <th>Status</th>
+                      <th>DORA</th>
+                      <th></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {batchRows.map((b) => (
+                      <tr
+                        key={b._id}
+                        className="cl"
+                        onClick={() => navigateTo(`/batches/detail?id=${b._id}`)}
                       >
-                        View
-                      </Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </TableWrap>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{b.id}</td>
+                        <td>{b.created}</td>
+                        <td>{b.qty}</td>
+                        <td>
+                          <Badge variant={b.statusVariant}>{b.status}</Badge>
+                        </td>
+                        <td>
+                          <Badge variant={b.doraVariant}>{b.dora}</Badge>
+                        </td>
+                        <td>
+                          {b.needsUpload && !isReadOnly ? (
+                            <Button
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openDoraForBatch(b);
+                              }}
+                            >
+                              Upload
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigateTo(`/batches/detail?id=${b._id}`);
+                              }}
+                            >
+                              View
+                            </Button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
           </Card>
         </>
       )}
@@ -172,72 +247,55 @@ export function ProductDetailPage() {
       {active === 'dora' && (
         <div className="r2">
           <Card>
-            <CardHeader title="Active DORA Model" action={<Badge variant="bg">Deployed</Badge>} />
-            <div
-              style={{
-                padding: 11,
-                background: 'var(--gb)',
-                borderRadius: 8,
-                marginBottom: 12,
-                fontSize: 12,
-              }}
-            >
-              <div style={{ fontWeight: 600, color: 'var(--gt)', marginBottom: 4 }}>
-                Model v3 — Trained Apr 5, 2026
-              </div>
-              <div className="stack-2" style={{ color: 'var(--gt)' }}>
-                <div>Training images: 2 (front + back)</div>
-                <div>Inference time: &lt;200ms</div>
-                <div>Last calibration: BATCH-042</div>
-                <div>Calibrations remaining: 18</div>
-              </div>
+            <CardHeader
+              title="DORA Training Status"
+              action={<Badge variant={trainedBatches.length > 0 ? 'bg' : 'ba'}>{trainedBatches.length > 0 ? 'Images uploaded' : 'Pending'}</Badge>}
+            />
+            <div style={{ padding: 11, background: 'var(--gb)', borderRadius: 8, marginBottom: 12, fontSize: 12 }}>
+              {trainedBatches.length > 0 ? (
+                <>
+                  <div style={{ fontWeight: 600, color: 'var(--gt)', marginBottom: 4 }}>
+                    {trainedBatches.length} batch{trainedBatches.length !== 1 ? 'es' : ''} with reference images
+                  </div>
+                  <div style={{ color: 'var(--gt)' }}>Latest: {trainedBatches[0]?.id} · {trainedBatches[0]?.created}</div>
+                </>
+              ) : (
+                <div style={{ color: 'var(--at)' }}>Upload front and back label images on a batch to start DORA training.</div>
+              )}
             </div>
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
-              Consumer verification URL for this product:
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>Consumer verification URL:</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input
-                className="inp"
-                defaultValue="https://verify-sartorhealth.sartor.ng"
-                readOnly
-                style={{ flex: 1 }}
-              />
-              <a
-                href="https://verify.dorascan.ai"
-                target="_blank"
-                rel="noreferrer"
-                className="btn bsec bsm"
-              >
+              <input className="inp" value={verifyUrl} readOnly style={{ flex: 1 }} />
+              <a href={verifyUrl} target="_blank" rel="noreferrer" className="btn bsec bsm">
                 Preview ↗
               </a>
             </div>
-            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-              <Button variant="secondary" size="sm" onClick={() => openModal('dora')}>
-                Retrain Model
-              </Button>
-              <Button variant="secondary" size="sm">
-                ↓ Download QR Code
-              </Button>
-            </div>
+            {!isReadOnly && batchRows.some((b) => b.needsUpload) && (
+              <div style={{ marginTop: 12 }}>
+                <Button variant="secondary" size="sm" onClick={() => openDoraForBatch(batchRows.find((b) => b.needsUpload)!)}>
+                  Upload Training Images
+                </Button>
+              </div>
+            )}
           </Card>
           <Card>
             <div className="ct" style={{ marginBottom: 11 }}>
-              Model History
+              Batch training history
             </div>
             <div style={{ display: 'grid', gap: 8, fontSize: 12 }}>
-              {[
-                { version: 'Model v3', status: 'Current', variant: 'bg' as const, desc: 'Trained Apr 5, 2026 · BATCH-042 reference', bg: 'var(--gb)', color: 'var(--gt)' },
-                { version: 'Model v2', status: 'Retired', variant: 'bx' as const, desc: 'Trained Jan 14, 2026 · BATCH-031 reference', bg: 'var(--bg)', color: 'var(--text3)' },
-                { version: 'Model v1', status: 'Retired', variant: 'bx' as const, desc: 'Trained Nov 2, 2025 · BATCH-018 reference', bg: 'var(--bg)', color: 'var(--text3)' },
-              ].map((m) => (
-                <div key={m.version} style={{ padding: 9, background: m.bg, borderRadius: 6 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-                    <strong>{m.version}</strong>
-                    <Badge variant={m.variant}>{m.status}</Badge>
+              {batchRows.length === 0 ? (
+                <div style={{ color: 'var(--text3)' }}>No batches yet.</div>
+              ) : (
+                batchRows.map((b) => (
+                  <div key={b._id} style={{ padding: 9, background: b.needsUpload ? 'var(--ab)' : 'var(--gb)', borderRadius: 6 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                      <strong>{b.id}</strong>
+                      <Badge variant={b.doraVariant}>{b.dora}</Badge>
+                    </div>
+                    <div style={{ color: 'var(--text2)' }}>Created {b.created}</div>
                   </div>
-                  <div style={{ color: m.color }}>{m.desc}</div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </Card>
         </div>
@@ -246,94 +304,36 @@ export function ProductDetailPage() {
       {active === 'analytics' && (
         <div className="r2">
           <LineChartCard
-            title="Authentication trend — last 90 days"
-            action={
-              <Button variant="secondary" size="sm" onClick={() => openModal('reports')}>
-                Export
-              </Button>
-            }
+            title="Authentication trend — last 30 days"
+            labels={scanTrendChart(analytics?.scanTrend ?? []).labels}
+            data={scanTrendChart(analytics?.scanTrend ?? []).data}
           />
           <Card>
             <div className="ct" style={{ marginBottom: 11 }}>
-              Top scan locations
+              This product (30d)
             </div>
-            <TableWrap>
-            <table>
-              <thead>
-                <tr>
-                  <th>City</th>
-                  <th>Scans</th>
-                  <th>Auth Rate</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { city: 'Lagos', scans: '2,140', rate: '97.8%' },
-                  { city: 'Abuja', scans: '1,230', rate: '98.1%' },
-                  { city: 'Ibadan', scans: '890', rate: '96.4%' },
-                  { city: 'Aba', scans: '380', rate: '87.2%', color: 'var(--rt)' },
-                ].map((row) => (
-                  <tr key={row.city}>
-                    <td>{row.city}</td>
-                    <td>{row.scans}</td>
-                    <td style={{ color: row.color ?? 'var(--gt)', fontWeight: 600 }}>{row.rate}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </TableWrap>
+            {(() => {
+              const row = analytics?.topProducts?.find((p) => p.productId === productId);
+              return row ? (
+                <div style={{ fontSize: 13, display: 'grid', gap: 8 }}>
+                  <div>Scans: <strong>{row.scans}</strong></div>
+                  <div>Auth rate: <strong>{row.authRate != null ? `${row.authRate}%` : '—'}</strong></div>
+                  <div>Batches: <strong>{row.batches}</strong></div>
+                </div>
+              ) : (
+                <div style={{ padding: 12, color: 'var(--text3)', fontSize: 13 }}>No scan data for this product yet.</div>
+              );
+            })()}
           </Card>
         </div>
       )}
 
       {active === 'licences' && (
         <Card>
-          <CardHeader
-            title="Regulatory Licences"
-            action={
-              !isReadOnly ? (
-                <Button size="sm" onClick={() => openModal('product')}>
-                  + Add Licence
-                </Button>
-              ) : undefined
-            }
-          />
-          <TableWrap minWidth={560}>
-          <table>
-            <thead>
-              <tr>
-                <th>Authority</th>
-                <th>Licence No.</th>
-                <th>Market</th>
-                <th>Valid From</th>
-                <th>Valid To</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>NAFDAC</td>
-                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>A7-0423L</td>
-                <td>Nigeria</td>
-                <td>Jan 1, 2024</td>
-                <td>Dec 31, 2026</td>
-                <td>
-                  <Badge variant="bg">Active</Badge>
-                </td>
-              </tr>
-              <tr>
-                <td>SON</td>
-                <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>SON/RM/2023/0117</td>
-                <td>Nigeria</td>
-                <td>Mar 1, 2023</td>
-                <td>Feb 28, 2027</td>
-                <td>
-                  <Badge variant="bg">Active</Badge>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          </TableWrap>
+          <div style={{ padding: 20, fontSize: 13, color: 'var(--text3)' }}>
+            Regulatory licences for this product can be added in a future release. Product registered{' '}
+            {formatApiDate(product.creationDateTime)}.
+          </div>
         </Card>
       )}
     </>

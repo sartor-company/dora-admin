@@ -1,5 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { ProtectedRoute } from '../components/ProtectedRoute';
 import { AppLayout } from '../components/layout/AppLayout';
+import { AppProvider } from '../context/AppContext';
+import { TenantDataProvider } from '../context/TenantDataContext';
+import { LoginPage } from '../pages/LoginPage';
 import { BatchDashboardPage } from '../pages/batch/BatchDashboardPage';
 import { BatchSettingsPage } from '../pages/batch/BatchSettingsPage';
 import { BatchDetailPage } from '../pages/batches/BatchDetailPage';
@@ -27,32 +31,43 @@ import { ReportsPage } from '../pages/ReportsPage';
 export function AppRoutes() {
   return (
     <Routes>
-      <Route element={<AppLayout />}>
-        <Route index element={<Navigate to="/owner/dashboard" replace />} />
-        <Route path="owner/dashboard" element={<OwnerDashboardPage />} />
-        <Route path="owner/settings" element={<OwnerSettingsPage />} />
-        <Route path="products" element={<ProductsPage />} />
-        <Route path="products/detail" element={<ProductDetailPage />} />
-        <Route path="batches" element={<BatchListPage />} />
-        <Route path="batches/detail" element={<BatchDetailPage />} />
-        <Route path="batch/dashboard" element={<BatchDashboardPage />} />
-        <Route path="batch/settings" element={<BatchSettingsPage />} />
-        <Route path="brand/dashboard" element={<BrandDashboardPage />} />
-        <Route path="brand/geo" element={<BrandGeoPage />} />
-        <Route path="brand/loyalty" element={<BrandLoyaltyPage />} />
-        <Route path="brand/fraud" element={<BrandFraudPage />} />
-        <Route path="brand/settings" element={<BrandSettingsPage />} />
-        <Route path="investigations/dashboard" element={<InvDashboardPage />} />
-        <Route path="investigations/queue" element={<InvQueuePage />} />
-        <Route path="investigations/detail" element={<InvDetailPage />} />
-        <Route path="investigations/settings" element={<InvSettingsPage />} />
-        <Route path="investigations/closed" element={<InvClosedPage />} />
-        <Route path="gifts" element={<GiftsListPage />} />
-        <Route path="gifts/detail" element={<GiftsDetailPage />} />
-        <Route path="gifts/analytics" element={<GiftsAnalyticsPage />} />
-        <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="reports" element={<ReportsPage />} />
-        <Route path="*" element={<Navigate to="/owner/dashboard" replace />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route
+          element={
+            <TenantDataProvider>
+              <AppProvider>
+                <AppLayout />
+              </AppProvider>
+            </TenantDataProvider>
+          }
+        >
+          <Route index element={<Navigate to="/owner/dashboard" replace />} />
+          <Route path="owner/dashboard" element={<OwnerDashboardPage />} />
+          <Route path="owner/settings" element={<OwnerSettingsPage />} />
+          <Route path="products" element={<ProductsPage />} />
+          <Route path="products/detail" element={<ProductDetailPage />} />
+          <Route path="batches" element={<BatchListPage />} />
+          <Route path="batches/detail" element={<BatchDetailPage />} />
+          <Route path="batch/dashboard" element={<BatchDashboardPage />} />
+          <Route path="batch/settings" element={<BatchSettingsPage />} />
+          <Route path="brand/dashboard" element={<BrandDashboardPage />} />
+          <Route path="brand/geo" element={<BrandGeoPage />} />
+          <Route path="brand/loyalty" element={<BrandLoyaltyPage />} />
+          <Route path="brand/fraud" element={<BrandFraudPage />} />
+          <Route path="brand/settings" element={<BrandSettingsPage />} />
+          <Route path="investigations/dashboard" element={<InvDashboardPage />} />
+          <Route path="investigations/queue" element={<InvQueuePage />} />
+          <Route path="investigations/detail" element={<InvDetailPage />} />
+          <Route path="investigations/settings" element={<InvSettingsPage />} />
+          <Route path="investigations/closed" element={<InvClosedPage />} />
+          <Route path="gifts" element={<GiftsListPage />} />
+          <Route path="gifts/detail" element={<GiftsDetailPage />} />
+          <Route path="gifts/analytics" element={<GiftsAnalyticsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="reports" element={<ReportsPage />} />
+          <Route path="*" element={<Navigate to="/owner/dashboard" replace />} />
+        </Route>
       </Route>
     </Routes>
   );

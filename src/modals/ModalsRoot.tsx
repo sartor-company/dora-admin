@@ -1,11 +1,10 @@
 import { useState } from 'react';
 import { CURRENCIES } from '../constants/currency';
-import { StepWizardModal } from '../components/wizards/StepWizardModal';
 import { useApp } from '../context/AppContext';
+import { useTenantData } from '../context/TenantDataContext';
+import { giftsApi } from '../api/gifts';
 import { useModal } from '../context/ModalContext';
 import { useToast } from '../context/ToastContext';
-import { BATCH_WIZARD_STEPS } from '../wizards/batchWizardSteps';
-import { PRODUCT_WIZARD_STEPS } from '../wizards/productWizardSteps';
 import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { CurrencyAmount } from '../components/ui/CurrencyAmount';
@@ -13,13 +12,17 @@ import { FormGroup } from '../components/ui/FormGroup';
 import { Modal, ModalFooter } from '../components/ui/Modal';
 import { Toggle } from '../components/ui/Toggle';
 import type { CurrencyCode } from '../types';
+import { BatchCreateModal } from './BatchCreateModal';
 import { BuyCreditsModal } from './BuyCreditsModal';
 import { CampaignWizardModal } from './CampaignWizardModal';
 import { DoraUploadModal } from './DoraUploadModal';
+import { InviteMemberModal } from './InviteMemberModal';
+import { ProductCreateModal } from './ProductCreateModal';
 
 export function ModalsRoot() {
   const { isOpen, closeModal } = useModal();
   const { currency, setCurrency } = useApp();
+  const { doraUploadTarget, refreshBatches, products, refreshCampaigns } = useTenantData();
   const { showToast } = useToast();
 
   const close = (id: Parameters<typeof closeModal>[0]) => () => closeModal(id);
@@ -36,60 +39,43 @@ export function ModalsRoot() {
         }}
       />
 
-      <StepWizardModal
+      <ProductCreateModal
         open={isOpen('product')}
         onClose={close('product')}
-        steps={PRODUCT_WIZARD_STEPS}
-        finishLabel="Create Product"
-        onFinish={() => {
+        onSuccess={() => {
           closeModal('product');
-          showToast('Product created successfully!');
+          showToast('Product created successfully!', 'success');
         }}
       />
 
-      <StepWizardModal
+      <BatchCreateModal
         open={isOpen('batch')}
         onClose={close('batch')}
-        steps={BATCH_WIZARD_STEPS}
-        finishLabel="Create Batch"
-        onFinish={() => {
+        onSuccess={() => {
           closeModal('batch');
-          showToast('Batch created! Download your print package from the batch detail page.');
+          showToast('Batch created! Upload DORA training images when ready.', 'success');
         }}
       />
 
       <DoraUploadModal
         open={isOpen('dora')}
         onClose={close('dora')}
-        onSubmit={() => {
+        target={doraUploadTarget}
+        onSubmit={async () => {
           closeModal('dora');
-          showToast('DORA training images submitted. Sartor AI team will train the model within 1–3 business days.');
+          await refreshBatches();
+          showToast('DORA training images submitted. Model training will begin shortly.', 'success');
         }}
       />
 
-      <Modal open={isOpen('invite-member')} onClose={close('invite-member')} title="Invite Team Member" width={460}>
-        <FormGroup label="Full Name *">
-          <input className="inp" placeholder="e.g. Adaeze Nwosu" />
-        </FormGroup>
-        <FormGroup label="Email Address *">
-          <input className="inp" type="email" placeholder="adaeze@yourcompany.com" />
-        </FormGroup>
-        <FormGroup label="Role *">
-          <select className="inp">
-            <option>Select role...</option>
-            <option>Batch Admin — Products, batches, DORA training, campaign management</option>
-            <option>Brand Manager — Analytics, loyalty, fraud alerts (read-only)</option>
-            <option>Investigation Officer — Fraud cases and investigation queue</option>
-          </select>
-        </FormGroup>
-        <div style={{ padding: 9, background: 'var(--bb)', borderRadius: 7, fontSize: 12, color: 'var(--bt)', marginBottom: 14 }}>
-          ℹ An invitation email will be sent. The user must set their own password on first login.
-        </div>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('invite-member')}>Cancel</Button>
-          <Button onClick={() => { closeModal('invite-member'); showToast('Invitation sent. They will receive an email to set their password.'); }}>Send Invitation</Button>
-        </ModalFooter>
-      </Modal>
+      <InviteMemberModal
+        open={isOpen('invite-member')}
+        onClose={close('invite-member')}
+        onSuccess={() => {
+          closeModal('invite-member');
+          showToast('Invitation sent. They will receive an email to set their password.', 'success');
+        }}
+      />
 
       <EditMemberModal open={isOpen('edit-member')} onClose={close('edit-member')} showToast={showToast} />
 
@@ -295,12 +281,22 @@ export function ModalsRoot() {
 
       <CampaignWizardModal
         open={isOpen('create-campaign')}
+        products={products}
         onClose={close('create-campaign')}
-        onFinish={() => {
-          closeModal('create-campaign');
-          showToast('Campaign activated! Consumers will begin accumulating progress immediately.');
+        onSubmit={async (payload) => {
+          try {
+            await giftsApi.createCampaign(payload);
+            await refreshCampaigns();
+            showToast(
+              payload.status === 'ACTIVE'
+                ? 'Campaign activated! Consumers will begin accumulating progress immediately.'
+                : 'Saved as Draft.',
+            );
+          } catch (e) {
+            showToast(e instanceof Error ? e.message : 'Failed to save campaign');
+            throw e;
+          }
         }}
-        onDraft={() => showToast('Saved as Draft.')}
       />
 
       <Modal open={isOpen('pause-warn')} onClose={close('pause-warn')} title="Pause Campaign?" width={440}>

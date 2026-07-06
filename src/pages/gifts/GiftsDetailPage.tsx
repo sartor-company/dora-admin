@@ -1,3 +1,6 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { giftsApi } from '../../api/gifts';
 import { LineChartCard } from '../../components/charts/LineChartCard';
 import { Badge } from '../../components/ui/Badge';
 import { BackLink } from '../../components/ui/BackLink';
@@ -7,12 +10,11 @@ import { IntegrationBanner } from '../../components/ui/IntegrationBanner';
 import { KCard, KCardGrid } from '../../components/ui/KCard';
 import { TabBar } from '../../components/ui/TabBar';
 import { TableWrap } from '../../components/ui/TableWrap';
-import { Toggle } from '../../components/ui/Toggle';
 import { useApp } from '../../context/AppContext';
-import { useModal } from '../../context/ModalContext';
+import { useTenantData } from '../../context/TenantDataContext';
 import { useToast } from '../../context/ToastContext';
-import { giftPools, redemptions } from '../../data/mock';
 import { useTabs } from '../../hooks/useTabs';
+import type { CampaignAnalytics, CampaignDetail, GiftRedemption } from '../../types/gifts';
 
 type GiftDetailTab = 'pools' | 'inventory' | 'redemptions' | 'analytics';
 
@@ -24,19 +26,126 @@ const TABS = [
 ];
 
 export function GiftsDetailPage() {
-  const { navigateLegacy } = useApp();
-  const { openModal } = useModal();
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get('id') || '';
+  const { navigateTo, isReadOnly } = useApp();
+  const { refreshCampaigns } = useTenantData();
   const { showToast } = useToast();
   const { active, setActive } = useTabs<GiftDetailTab>('pools');
 
+  const [campaign, setCampaign] = useState<CampaignDetail | null>(null);
+  const [redemptions, setRedemptions] = useState<GiftRedemption[]>([]);
+  const [analytics, setAnalytics] = useState<CampaignAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [endConfirm, setEndConfirm] = useState('');
+
+  const load = useCallback(async () => {
+    if (!campaignId) return;
+    setLoading(true);
+    try {
+      const [detail, redemptionRows, campaignAnalytics] = await Promise.all([
+        giftsApi.getCampaign(campaignId),
+        giftsApi.listRedemptions({ campaignId }),
+        giftsApi.campaignAnalytics(campaignId, 30),
+      ]);
+      setCampaign(detail);
+      setRedemptions(redemptionRows);
+      setAnalytics(campaignAnalytics);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to load campaign');
+    } finally {
+      setLoading(false);
+    }
+  }, [campaignId, showToast]);
+
+  useEffect(() => {
+    if (!campaignId) {
+      setLoading(false);
+      return;
+    }
+    load();
+  }, [campaignId, load]);
+
+  const inventoryRows = useMemo(() => {
+    if (!campaign) return [];
+    return campaign.poolsDetail.flatMap((pool) =>
+      pool.gifts.map((gift) => ({
+        poolId: pool._id,
+        poolName: pool.name,
+        giftId: gift._id,
+        icon: gift.icon,
+        name: gift.name,
+        total: gift.totalQty,
+        remaining: gift.remaining,
+        issued: gift.issued,
+        redeemed: gift.redeemed,
+        weight: gift.weight,
+      })),
+    );
+  }, [campaign]);
+
+  const handlePause = async () => {
+    if (!campaign) return;
+    try {
+      await giftsApi.pauseCampaign(campaign._id);
+      await refreshCampaigns();
+      await load();
+      showToast('Campaign paused. Auth counts frozen.');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to pause campaign');
+    }
+  };
+
+  const handleEnd = async () => {
+    if (!campaign) return;
+    if (endConfirm !== 'END') {
+      showToast('Type END to confirm');
+      return;
+    }
+    try {
+      await giftsApi.endCampaign(campaign._id);
+      setEndConfirm('');
+      await refreshCampaigns();
+      await load();
+      showToast('Campaign ended.');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Failed to end campaign');
+    }
+  };
+
+  if (!campaignId) {
+    return (
+      <div style={{ padding: 24 }}>
+        <BackLink onClick={() => navigateTo('/gifts')}>← Back to Campaigns</BackLink>
+        <p style={{ marginTop: 16, color: 'var(--text3)' }}>No campaign selected.</p>
+      </div>
+    );
+  }
+
+  if (loading && !campaign) {
+    return <div style={{ padding: 24, color: 'var(--text3)' }}>Loading campaign…</div>;
+  }
+
+  if (!campaign) {
+    return (
+      <div style={{ padding: 24 }}>
+        <BackLink onClick={() => navigateTo('/gifts')}>← Back to Campaigns</BackLink>
+        <p style={{ marginTop: 16, color: 'var(--text3)' }}>Campaign not found.</p>
+      </div>
+    );
+  }
+
+  const stats = campaign.stats;
+  const canManage = !isReadOnly && campaign.status === 'ACTIVE';
+
   return (
     <>
-      <BackLink onClick={() => navigateLegacy('pg-gifts-list')}>← Back to Campaigns</BackLink>
+      <BackLink onClick={() => navigateTo('/gifts')}>← Back to Campaigns</BackLink>
 
       <div className="pghead">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <div className="pgtitle">Welcome & Loyalty — Default</div>
+            <div className="pgtitle">{campaign.name}</div>
             <span
               style={{
                 display: 'inline-flex',
@@ -44,359 +153,200 @@ export function GiftsDetailPage() {
                 fontWeight: 600,
                 padding: '2px 7px',
                 borderRadius: 4,
-                background: 'var(--pb)',
-                color: 'var(--pt)',
+                background: campaign.scope === 'CLIENT_WIDE' ? 'var(--pb)' : 'var(--bb)',
+                color: campaign.scope === 'CLIENT_WIDE' ? 'var(--pt)' : 'var(--bt)',
               }}
             >
-              CLIENT_WIDE
+              {campaign.scope}
             </span>
-            <Badge variant="bg">Active</Badge>
+            <Badge variant={campaign.statusVariant}>{campaign.statusLabel}</Badge>
           </div>
-          <div className="pgsub">Brand-wide milestone programme · No end date · Jan 1, 2026</div>
+          <div className="pgsub">
+            {campaign.description || 'Gift campaign'} · {campaign.dateStart}
+            {campaign.dateEnd ? ` – ${campaign.dateEnd}` : ' · No end date'}
+          </div>
         </div>
-        <div className="pghead-actions" style={{ marginBottom: 0 }}>
-          <Button variant="secondary" size="sm" onClick={() => openModal('pause-warn')}>
-            ▮▮ Pause
-          </Button>
-          <Button variant="danger" size="sm" onClick={() => openModal('end-warn')}>
-            ■ End Campaign
-          </Button>
-        </div>
+        {canManage && (
+          <div className="pghead-actions" style={{ marginBottom: 0, flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="secondary" size="sm" onClick={handlePause}>
+                ▮▮ Pause
+              </Button>
+              <Button variant="danger" size="sm" onClick={handleEnd}>
+                ■ End Campaign
+              </Button>
+            </div>
+            <input
+              className="inp"
+              style={{ maxWidth: 160, fontSize: 12 }}
+              placeholder='Type END to confirm end'
+              value={endConfirm}
+              onChange={(e) => setEndConfirm(e.target.value)}
+            />
+          </div>
+        )}
       </div>
 
       <KCardGrid>
-        <KCard label="Eligibility Events" value="892" trend="↑ 14% this month" trendType="up" />
-        <KCard label="Codes Generated" value="867" trend="25 PENDING_STOCK" trendType="neu" />
-        <KCard label="Redeemed" value="645" trend="72.4% rate" trendType="up" />
-        <KCard label="Expired" value="43" trend="4.8% of issued" trendType="neu" />
+        <KCard label="Eligibility Events" value={String(stats.eligible)} trend="Live" trendType="up" />
+        <KCard
+          label="Codes Generated"
+          value={String(stats.eligible)}
+          trend={`${stats.pendingStock} PENDING_STOCK`}
+          trendType="neu"
+        />
+        <KCard
+          label="Redeemed"
+          value={String(stats.redeemed)}
+          trend={`${stats.redemptionRate}% rate`}
+          trendType="up"
+        />
+        <KCard label="Expired" value={String(stats.expired)} trend="From redemptions" trendType="neu" />
       </KCardGrid>
 
       <TabBar tabs={TABS} active={active} onChange={(id) => setActive(id as GiftDetailTab)} />
 
       {active === 'pools' && (
         <>
-          <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>
-            Each pool fires independently on a qualifying authentication. All FIRST_AUTH pools are
-            always exempt from stacking rules.
-          </div>
-          {giftPools.map((pool) => (
-            <div
-              key={pool.id}
-              style={{
-                border: '1px solid var(--border)',
-                borderRadius: 10,
-                marginBottom: 12,
-                overflow: 'hidden',
-              }}
-            >
+          {campaign.poolsDetail.length === 0 ? (
+            <div style={{ padding: 16, color: 'var(--text3)' }}>
+              No pools configured. Activate a draft with pools from the campaign wizard.
+            </div>
+          ) : (
+            campaign.poolsDetail.map((pool) => (
               <div
+                key={pool._id}
                 style={{
-                  background: pool.headerBg,
-                  padding: '13px 16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  flexWrap: 'wrap',
-                  gap: 8,
+                  border: '1px solid var(--border)',
+                  borderRadius: 10,
+                  marginBottom: 12,
+                  overflow: 'hidden',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                  <div
-                    style={{
-                      padding: '3px 9px',
-                      background: pool.triggerBg,
-                      color: pool.triggerColor,
-                      borderRadius: 4,
-                      fontSize: 11,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {pool.trigger}
-                  </div>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{pool.name}</div>
-                  <div style={{ fontSize: 11, color: pool.activeLabelColor }}>{pool.subtitle}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 11, color: pool.activeLabelColor }}>{pool.activeLabel}</span>
-                  <Toggle defaultOn />
-                </div>
-              </div>
-              <div style={{ padding: '13px 16px' }}>
-                <div className="pool-gifts-grid">
-                  {pool.gifts.map((gift) => (
+                <div
+                  style={{
+                    background: pool.headerBg,
+                    padding: '13px 16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                     <div
-                      key={gift.name}
                       style={{
-                        background: 'var(--bg)',
-                        borderRadius: 8,
-                        padding: 12,
-                        display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 10,
+                        padding: '3px 9px',
+                        background: pool.triggerBg,
+                        color: pool.triggerColor,
+                        borderRadius: 4,
+                        fontSize: 11,
+                        fontWeight: 700,
                       }}
                     >
+                      {pool.trigger}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{pool.name}</div>
+                    <div style={{ fontSize: 11, color: pool.activeLabelColor }}>{pool.subtitle}</div>
+                  </div>
+                  <span style={{ fontSize: 11, color: pool.activeLabelColor }}>{pool.activeLabel}</span>
+                </div>
+                <div style={{ padding: '13px 16px' }}>
+                  <div className="pool-gifts-grid">
+                    {pool.gifts.map((gift) => (
                       <div
+                        key={gift._id}
                         style={{
-                          width: 44,
-                          height: 44,
-                          background: 'var(--bg2)',
-                          borderRadius: 7,
+                          background: 'var(--bg)',
+                          borderRadius: 8,
+                          padding: 12,
                           display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: 20,
-                          flexShrink: 0,
+                          alignItems: 'flex-start',
+                          gap: 10,
                         }}
                       >
-                        {gift.icon}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600 }}>{gift.name}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                          {gift.description}
+                        <div style={{ fontSize: 20 }}>{gift.icon}</div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{gift.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                            {gift.description || '—'}
+                          </div>
+                          <div className="gift-mini-stats">
+                            <div>
+                              <div style={{ color: 'var(--text3)' }}>Remaining</div>
+                              <div
+                                style={{
+                                  fontWeight: 700,
+                                  color: gift.remainingColor ?? 'var(--gt)',
+                                  fontFamily: "'DM Mono', monospace",
+                                }}
+                              >
+                                {gift.remaining}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ color: 'var(--text3)' }}>Issued</div>
+                              <div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
+                                {gift.issued}
+                              </div>
+                            </div>
+                            <div>
+                              <div style={{ color: 'var(--text3)' }}>Weight</div>
+                              <div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
+                                {gift.weight}
+                              </div>
+                            </div>
+                          </div>
                         </div>
-                        <div className="gift-mini-stats">
-                          <div>
-                            <div style={{ color: 'var(--text3)' }}>Remaining</div>
-                            <div
-                              style={{
-                                fontWeight: 700,
-                                color: gift.remainingColor ?? 'var(--gt)',
-                                fontFamily: "'DM Mono', monospace",
-                              }}
-                            >
-                              {gift.remaining}
-                            </div>
-                          </div>
-                          <div>
-                            <div style={{ color: 'var(--text3)' }}>Issued</div>
-                            <div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
-                              {gift.issued}
-                            </div>
-                          </div>
-                          <div>
-                            <div style={{ color: 'var(--text3)' }}>Weight</div>
-                            <div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
-                              {gift.weight}
-                            </div>
-                          </div>
-                        </div>
-                        {gift.showReplenish && (
-                          <Button
-                            variant="amber"
-                            size="sm"
-                            style={{ marginTop: 8, fontSize: 11 }}
-                            onClick={() => openModal('replenish')}
-                          >
-                            + Replenish Stock
-                          </Button>
-                        )}
                       </div>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    style={{
-                      border: '1.5px dashed var(--border)',
-                      borderRadius: 8,
-                      padding: 12,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      gap: 4,
-                      color: 'var(--text3)',
-                      background: 'transparent',
-                      font: 'inherit',
-                    }}
-                    onClick={() => openModal('add-gift')}
-                  >
-                    <div style={{ fontSize: 24 }}>+</div>
-                    <div style={{ fontSize: 12 }}>Add gift to pool</div>
-                    <div style={{ fontSize: 11, textAlign: 'center' }}>
-                      Multiple gifts = weighted random selection
-                    </div>
-                  </button>
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-          <Button variant="secondary" size="sm" onClick={() => showToast('Add new pool to this campaign')}>
-            + Add Trigger Pool
-          </Button>
+            ))
+          )}
         </>
       )}
 
       {active === 'inventory' && (
-        <>
-          <div
-            style={{
-              padding: '10px 12px',
-              background: 'var(--bb)',
-              borderRadius: 7,
-              fontSize: 12,
-              color: 'var(--bt)',
-              marginBottom: 14,
-            }}
-          >
-            ℹ <strong>PENDING_STOCK:</strong> 25 consumers are waiting for gifts from Pool 2 (10th
-            Scan). Replenish stock and click &ldquo;Release to Waitlist&rdquo; to assign gifts in
-            chronological eligibility order.
-          </div>
-          <Card style={{ marginBottom: 12 }}>
-            <CardHeader
-              title="Pool 2 — 10th Scan Milestone (PENDING_STOCK: 25)"
-              action={
-                <Button size="sm" onClick={() => openModal('replenish')}>
-                  + Replenish Stock
-                </Button>
-              }
-            />
+        <Card>
+          <CardHeader title="Gift inventory across pools" />
+          {inventoryRows.length === 0 ? (
+            <div style={{ padding: 16, color: 'var(--text3)' }}>No gift items in this campaign.</div>
+          ) : (
             <TableWrap>
-            <table>
-              <thead>
-                <tr>
-                  <th>Gift</th>
-                  <th>Total Qty</th>
-                  <th>Remaining</th>
-                  <th>Issued</th>
-                  <th>Redeemed</th>
-                  <th>Weight</th>
-                  <th>Live %</th>
-                  <th>Active</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { icon: '💳', name: '₦500 Store Credit', total: 500, remaining: 210, issued: 290, redeemed: 238, weight: '3.0', live: '60%' },
-                  { icon: '💼', name: 'Free Delivery Voucher', total: 300, remaining: 87, issued: 213, redeemed: 187, weight: '2.0', live: '40%' },
-                ].map((row) => (
-                  <tr key={row.name}>
-                    <td style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px' }}>
-                      <div
-                        style={{
-                          width: 30,
-                          height: 30,
-                          background: 'var(--bg2)',
-                          borderRadius: 5,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        {row.icon}
-                      </div>
-                      <span>{row.name}</span>
-                    </td>
-                    <td>{row.total}</td>
-                    <td style={{ fontWeight: 600, color: 'var(--gt)', fontFamily: "'DM Mono', monospace" }}>
-                      {row.remaining}
-                    </td>
-                    <td>{row.issued}</td>
-                    <td>{row.redeemed}</td>
-                    <td style={{ fontFamily: "'DM Mono', monospace" }}>{row.weight}</td>
-                    <td>
-                      <div
-                        style={{
-                          background: 'var(--bg)',
-                          borderRadius: 4,
-                          padding: '3px 7px',
-                          fontSize: 12,
-                          fontWeight: 600,
-                          fontFamily: "'DM Mono', monospace",
-                        }}
-                      >
-                        {row.live}
-                      </div>
-                    </td>
-                    <td>
-                      <Toggle defaultOn />
-                    </td>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Gift</th>
+                    <th>Pool</th>
+                    <th>Total</th>
+                    <th>Remaining</th>
+                    <th>Issued</th>
+                    <th>Redeemed</th>
+                    <th>Weight</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {inventoryRows.map((row) => (
+                    <tr key={row.giftId}>
+                      <td>
+                        {row.icon} {row.name}
+                      </td>
+                      <td>{row.poolName}</td>
+                      <td>{row.total}</td>
+                      <td>{row.remaining}</td>
+                      <td>{row.issued}</td>
+                      <td>{row.redeemed}</td>
+                      <td>{row.weight}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </TableWrap>
-            <div
-              style={{
-                padding: '10px 12px',
-                background: 'var(--ab)',
-                borderRadius: 7,
-                fontSize: 12,
-                color: 'var(--at)',
-                marginTop: 11,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 8,
-              }}
-            >
-              <span>⚠ 25 consumers on PENDING_STOCK waitlist</span>
-              <Button
-                variant="amber"
-                size="sm"
-                onClick={() => showToast('Gifts assigned to 25 waiting consumers in chronological order')}
-              >
-                Release to Waitlist (25)
-              </Button>
-            </div>
-          </Card>
-          <Card>
-            <CardHeader
-              title="Pool 3 — Monthly Top 10 (Low Stock)"
-              action={
-                <Button size="sm" onClick={() => openModal('replenish')}>
-                  + Replenish Stock
-                </Button>
-              }
-            />
-            <TableWrap>
-            <table>
-              <thead>
-                <tr>
-                  <th>Gift</th>
-                  <th>Total Qty</th>
-                  <th>Remaining</th>
-                  <th>Issued</th>
-                  <th>Redeemed</th>
-                  <th>Active</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px' }}>
-                    <div
-                      style={{
-                        width: 30,
-                        height: 30,
-                        background: 'var(--bg2)',
-                        borderRadius: 5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                      }}
-                    >
-                      🏋
-                    </div>
-                    <span>Premium Membership (1 month)</span>
-                  </td>
-                  <td>60</td>
-                  <td style={{ fontWeight: 600, color: 'var(--at)', fontFamily: "'DM Mono', monospace" }}>
-                    4
-                  </td>
-                  <td>56</td>
-                  <td>51</td>
-                  <td>
-                    <Toggle defaultOn />
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            </TableWrap>
-          </Card>
-        </>
+          )}
+        </Card>
       )}
 
       {active === 'redemptions' && (
@@ -404,164 +354,96 @@ export function GiftsDetailPage() {
           <IntegrationBanner
             variant="crm"
             label="Sartor CRM"
-            description="Sales reps confirm physical redemptions in the CRM. Rep tracking, route management and fulfilment logging live there."
+            description="Physical gift fulfilment is managed in Sartor CRM when CRM is enabled for your tenant."
             href="https://crm.sartor.ng"
             linkText="Open CRM ↗"
           />
           <Card>
-            <CardHeader
-              title="Redemption Records"
-              action={
-                <Button variant="secondary" size="sm" onClick={() => showToast('CSV exported')}>
-                  Export CSV
-                </Button>
-              }
-            />
-            <div style={{ display: 'flex', gap: 8, marginBottom: 11, flexWrap: 'wrap' }}>
-              <input className="inp" style={{ flex: 1, minWidth: 120 }} placeholder="Search by consumer, gift, rep..." />
-              <select className="inp" style={{ width: 140 }}>
-                <option>All Pools</option>
-                <option>FIRST_AUTH</option>
-                <option>NTH_AUTH</option>
-                <option>TOP_SCANNER</option>
-              </select>
-              <select className="inp" style={{ width: 140 }}>
-                <option>All Statuses</option>
-                <option>Redeemed</option>
-                <option>Active</option>
-                <option>Expired</option>
-                <option>Pending Stock</option>
-              </select>
-            </div>
-            <TableWrap>
-            <table>
-              <thead>
-                <tr>
-                  <th>Consumer</th>
-                  <th>Gift</th>
-                  <th>Pool</th>
-                  <th>Rep</th>
-                  <th>Method</th>
-                  <th>Redeemed At</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {redemptions.map((r, i) => (
-                  <tr key={i}>
-                    <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{r.consumer}</td>
-                    <td>{r.gift}</td>
-                    <td>
-                      <Badge variant={r.poolVariant} style={{ fontSize: 10 }}>
-                        {r.pool}
-                      </Badge>
-                    </td>
-                    <td>{r.rep}</td>
-                    <td>{r.method}</td>
-                    <td>{r.redeemedAt}</td>
-                    <td>
-                      <Badge variant={r.statusVariant}>{r.status}</Badge>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </TableWrap>
+            {redemptions.length === 0 ? (
+              <div style={{ padding: 16, color: 'var(--text3)' }}>
+                No redemptions yet. They appear when consumers qualify for gifts.
+              </div>
+            ) : (
+              <TableWrap>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Consumer</th>
+                      <th>Gift</th>
+                      <th>Pool</th>
+                      <th>Rep</th>
+                      <th>Method</th>
+                      <th>Redeemed</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {redemptions.map((r) => (
+                      <tr key={r._id}>
+                        <td>{r.consumer}</td>
+                        <td>{r.gift}</td>
+                        <td>
+                          <Badge variant={r.poolVariant}>{r.pool}</Badge>
+                        </td>
+                        <td>{r.rep}</td>
+                        <td>{r.method}</td>
+                        <td>{r.redeemedAt}</td>
+                        <td>
+                          <Badge variant={r.statusVariant}>{r.status}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
           </Card>
         </>
       )}
 
       {active === 'analytics' && (
         <>
-          <KCardGrid>
-            <KCard label="Eligibility Events" value="892" />
-            <KCard label="Codes Generated" value="867" trend="25 PENDING_STOCK" trendType="neu" />
-            <KCard label="Redemption Rate" value="72.4%" trend="↑ 8%" trendType="up" />
-            <KCard label="Expired Unredeemed" value="43" trend="4.8% of issued" trendType="neu" />
-          </KCardGrid>
           <div className="r2">
-            <LineChartCard title="Daily redemptions — last 30 days" />
-            <Card>
-              <CardHeader
-                title="Top reps by redemption count"
-                action={
-                  <a
-                    href="https://crm.sartor.ng"
-                    target="_blank"
-                    rel="noreferrer"
-                    style={{ fontSize: 11, color: 'var(--bt)', fontWeight: 600 }}
-                  >
-                    View in CRM ↗
-                  </a>
-                }
-              />
-              <TableWrap>
-            <table>
-                <thead>
-                  <tr>
-                    <th>Rep</th>
-                    <th>Role</th>
-                    <th>Redeemed</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { rep: 'Mike Okonkwo', role: 'Sales Manager', count: 89 },
-                    { rep: 'Ada Chukwu', role: 'Promoter', count: 74 },
-                    { rep: 'Bola Adesanya', role: 'Merchandizer', count: 63 },
-                    { rep: 'Chidi Kalu', role: 'Promoter', count: 58 },
-                  ].map((row) => (
-                    <tr key={row.rep}>
-                      <td>{row.rep}</td>
-                      <td>{row.role}</td>
-                      <td style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{row.count}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </TableWrap>
-            </Card>
+            <LineChartCard
+              title="Daily redemptions — last 30 days"
+              labels={analytics?.chart.labels}
+              data={analytics?.chart.data}
+            />
           </div>
-          <Card>
+          <Card style={{ marginTop: 12 }}>
             <CardHeader title="Per-pool breakdown" />
-            <TableWrap>
-            <table>
-              <thead>
-                <tr>
-                  <th>Pool</th>
-                  <th>Trigger</th>
-                  <th>Events</th>
-                  <th>Codes</th>
-                  <th>Redeemed</th>
-                  <th>Rate</th>
-                  <th>PENDING_STOCK</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  { pool: 'Pool 1 — Welcome Gift', trigger: 'FIRST_AUTH', triggerVariant: 'bg' as const, events: 352, codes: 352, redeemed: 290, rate: '82.4%', rateColor: 'var(--gt)', pending: '0', pendingColor: 'var(--text3)' },
-                  { pool: 'Pool 2 — 10th Scan', trigger: 'NTH_AUTH', triggerVariant: 'bb' as const, events: 503, codes: 478, redeemed: 328, rate: '65.2%', rateColor: 'var(--at)', pending: '25', pendingColor: 'var(--at)' },
-                  { pool: 'Pool 3 — Monthly Top 10', trigger: 'TOP_SCANNER', triggerVariant: 'ba' as const, events: 60, codes: 56, redeemed: 51, rate: '85.0%', rateColor: 'var(--gt)', pending: '0', pendingColor: 'var(--text3)' },
-                ].map((row) => (
-                  <tr key={row.pool}>
-                    <td>{row.pool}</td>
-                    <td>
-                      <Badge variant={row.triggerVariant} style={{ fontSize: 10 }}>
-                        {row.trigger}
-                      </Badge>
-                    </td>
-                    <td>{row.events}</td>
-                    <td>{row.codes}</td>
-                    <td>{row.redeemed}</td>
-                    <td style={{ color: row.rateColor, fontWeight: 600 }}>{row.rate}</td>
-                    <td style={{ color: row.pendingColor, fontWeight: row.pending !== '0' ? 600 : undefined }}>
-                      {row.pending}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </TableWrap>
+            {(analytics?.poolBreakdown.length ?? 0) === 0 ? (
+              <div style={{ padding: 16, color: 'var(--text3)' }}>No pool activity in this period.</div>
+            ) : (
+              <TableWrap>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Pool</th>
+                      <th>Trigger</th>
+                      <th>Events</th>
+                      <th>Redeemed</th>
+                      <th>Rate</th>
+                      <th>Pending</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analytics?.poolBreakdown.map((row) => (
+                      <tr key={row.pool}>
+                        <td>{row.pool}</td>
+                        <td>
+                          <Badge variant={row.triggerVariant}>{row.trigger}</Badge>
+                        </td>
+                        <td>{row.events}</td>
+                        <td>{row.redeemed}</td>
+                        <td>{row.rate}</td>
+                        <td>{row.pending}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TableWrap>
+            )}
           </Card>
         </>
       )}

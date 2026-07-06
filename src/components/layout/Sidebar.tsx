@@ -5,7 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { NavIcon } from '../icons/NavIcon';
 
 export function Sidebar() {
-  const { role, sidebarOpen, closeSidebar, companyName } = useApp();
+  const { role, sidebarOpen, closeSidebar, companyName, crmEnabled } = useApp();
   const config = ROLES[role];
 
   useEffect(() => {
@@ -51,27 +51,29 @@ export function Sidebar() {
         </div>
         <div className="sfooter">
           <div style={{ padding: '7px 9px', marginBottom: 4, display: 'flex', gap: 6 }}>
-            <a
-              href="https://crm.sartor.ng"
-              target="_blank"
-              rel="noreferrer"
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 4,
-                padding: '5px 8px',
-                background: 'rgba(255,255,255,.08)',
-                borderRadius: 6,
-                fontSize: 11,
-                fontWeight: 600,
-                color: 'rgba(255,255,255,.7)',
-                textDecoration: 'none',
-              }}
-            >
-              CRM
-            </a>
+            {crmEnabled && (
+              <a
+                href="https://crm.sartor.ng"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  flex: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 4,
+                  padding: '5px 8px',
+                  background: 'rgba(255,255,255,.08)',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: 'rgba(255,255,255,.7)',
+                  textDecoration: 'none',
+                }}
+              >
+                CRM
+              </a>
+            )}
             <a
               href="https://verify.dorascan.ai"
               target="_blank"

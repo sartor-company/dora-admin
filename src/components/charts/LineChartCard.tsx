@@ -27,6 +27,8 @@ interface LineChartCardProps {
   color?: string;
   height?: number;
   action?: React.ReactNode;
+  labels?: string[];
+  data?: number[];
 }
 
 export function LineChartCard({
@@ -34,6 +36,8 @@ export function LineChartCard({
   color = 'rgb(26,45,124)',
   height = 190,
   action,
+  labels = CHART_LABELS,
+  data = CHART_DATA,
 }: LineChartCardProps) {
   const fill = color.replace('rgb', 'rgba').replace(')', ',0.07)');
 
@@ -43,10 +47,10 @@ export function LineChartCard({
       <div className="chart-wrap" style={{ height }}>
         <Line
           data={{
-            labels: CHART_LABELS,
+            labels,
             datasets: [
               {
-                data: CHART_DATA,
+                data,
                 borderColor: color,
                 backgroundColor: fill,
                 fill: true,

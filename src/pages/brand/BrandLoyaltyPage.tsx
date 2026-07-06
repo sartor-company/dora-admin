@@ -1,45 +1,35 @@
+import { useEffect, useState } from 'react';
+import { analyticsApi } from '../../api/analytics';
 import { Card, CardHeader } from '../../components/ui/Card';
 import { KCard, KCardGrid } from '../../components/ui/KCard';
 import { PageHeader } from '../../components/ui/PageHeader';
+import type { LoyaltyAnalytics } from '../../types/analytics';
+import { formatPercent } from '../../utils/mappers';
 
 export function BrandLoyaltyPage() {
+  const [loyalty, setLoyalty] = useState<LoyaltyAnalytics | null>(null);
+
+  useEffect(() => {
+    analyticsApi.loyalty(30).then(setLoyalty).catch(() => setLoyalty(null));
+  }, []);
+
+  const kpis = loyalty?.kpis;
+
   return (
     <>
       <PageHeader title="Consumer Loyalty" subtitle="Points, redemptions and gift distribution" />
 
       <KCardGrid>
-        <KCard label="Active Consumers" value="4,218" trend="↑ 18.7%" trendType="up" />
-        <KCard label="New Registrations" value="634" trend="↑ 23.4%" trendType="up" />
-        <KCard label="Points Issued (30d)" value="21.3K" trend="↑ 15.2%" trendType="up" />
-        <KCard label="Redemption Rate" value="42.8%" trend="↑ 9.8%" trendType="up" />
+        <KCard label="Active Consumers" value={String(kpis?.activeConsumers ?? 0)} trend="All time" trendType="up" />
+        <KCard label="New verifications (30d)" value={String(kpis?.newRegistrations ?? 0)} trend="Unique consumers" trendType="up" />
+        <KCard label="Points Issued (30d)" value={String(kpis?.pointsIssued ?? 0)} trend="From authentications" trendType="up" />
+        <KCard label="Redemption Rate" value={formatPercent(kpis?.redemptionRate)} trend="Gift Engine pending" trendType="neu" />
       </KCardGrid>
 
       <Card>
         <CardHeader title="Gift distribution performance" />
-        <div style={{ display: 'grid', gap: 7, fontSize: 12 }}>
-          {[
-            { name: '₦500 Store Credit', detail: '134 distributed · 113 redeemed', rate: '84.3%' },
-            { name: 'Free Delivery Voucher', detail: '287 distributed · 214 redeemed', rate: '74.6%' },
-            { name: 'Product Bundle Reward', detail: '67 distributed · 59 redeemed', rate: '88.1%' },
-          ].map((item) => (
-            <div
-              key={item.name}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '9px 11px',
-                background: 'var(--bg)',
-                borderRadius: 6,
-              }}
-            >
-              <div>
-                <div style={{ fontWeight: 500 }}>{item.name}</div>
-                <div style={{ color: 'var(--text3)' }}>{item.detail}</div>
-              </div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--gt)' }}>{item.rate}</div>
-            </div>
-          ))}
+        <div style={{ padding: 20, fontSize: 13, color: 'var(--text3)' }}>
+          {loyalty?.note || 'Gift analytics will appear when the Gift Engine module is enabled.'}
         </div>
       </Card>
     </>

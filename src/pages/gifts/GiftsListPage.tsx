@@ -8,9 +8,10 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { RestrictBanner } from '../../components/ui/RestrictBanner';
 import { useApp } from '../../context/AppContext';
 import { useModal } from '../../context/ModalContext';
+import { useTenantData } from '../../context/TenantDataContext';
 import { useToast } from '../../context/ToastContext';
-import { campaigns } from '../../data/mock';
 import { useTableFilter } from '../../hooks/useTableFilter';
+import type { CampaignListItem } from '../../types/gifts';
 
 function ScopeBadge({ scope }: { scope: 'CLIENT_WIDE' | 'SKU_SPECIFIC' }) {
   const isWide = scope === 'CLIENT_WIDE';
@@ -32,10 +33,17 @@ function ScopeBadge({ scope }: { scope: 'CLIENT_WIDE' | 'SKU_SPECIFIC' }) {
 }
 
 export function GiftsListPage() {
-  const { isReadOnly, navigateLegacy } = useApp();
+  const { isReadOnly, navigateTo } = useApp();
   const { openModal } = useModal();
   const { showToast } = useToast();
-  const { query, setQuery, filtered } = useTableFilter(campaigns, ['name', 'subtitle', 'status']);
+  const { campaigns, campaignSummary, loading } = useTenantData();
+  const { query, setQuery, filtered } = useTableFilter(campaigns, [
+    'name',
+    'subtitle',
+    'status',
+  ] as (keyof CampaignListItem)[]);
+
+  const summary = campaignSummary;
 
   return (
     <>
@@ -63,10 +71,30 @@ export function GiftsListPage() {
       )}
 
       <KCardGrid>
-        <KCard label="Active Campaigns" value="3" trend="2 CLIENT_WIDE · 1 SKU-specific" trendType="up" />
-        <KCard label="Total Eligibility Events" value="1,284" trend="↑ 23% this month" trendType="up" />
-        <KCard label="Codes Generated" value="1,241" trend="97% fulfil rate" trendType="neu" />
-        <KCard label="Redemption Rate" value="72.4%" trend="↑ 8% vs last month" trendType="up" />
+        <KCard
+          label="Active Campaigns"
+          value={String(summary?.activeCampaigns ?? 0)}
+          trend={summary?.scopeBreakdown || '—'}
+          trendType="up"
+        />
+        <KCard
+          label="Total Eligibility Events"
+          value={String(summary?.eligibilityEvents ?? 0)}
+          trend="Live from redemptions"
+          trendType="up"
+        />
+        <KCard
+          label="Codes Generated"
+          value={String(summary?.codesGenerated ?? 0)}
+          trend={`${summary?.fulfilRate ?? 0}% fulfil rate`}
+          trendType="neu"
+        />
+        <KCard
+          label="Redemption Rate"
+          value={`${summary?.redemptionRate ?? 0}%`}
+          trend={summary?.pendingStock ? `${summary.pendingStock} pending stock` : '—'}
+          trendType="up"
+        />
       </KCardGrid>
 
       <Card>
@@ -77,94 +105,100 @@ export function GiftsListPage() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
-          <select className="inp">
-            <option>All Scopes</option>
-            <option>CLIENT_WIDE</option>
-            <option>SKU_SPECIFIC</option>
-          </select>
-          <select className="inp">
-            <option>All Statuses</option>
-            <option>Draft</option>
-            <option>Active</option>
-            <option>Paused</option>
-            <option>Ended</option>
-          </select>
         </FilterBar>
-        <TableWrap minWidth={760}>
-        <table>
-          <thead>
-            <tr>
-              <th>Campaign Name</th>
-              <th>Scope</th>
-              <th>Status</th>
-              <th>Date Range</th>
-              <th>Pools</th>
-              <th>Eligible</th>
-              <th>Redeemed</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((c) => (
-              <tr
-                key={c.id}
-                className={!c.isDraft && !c.isEnded ? 'cl' : undefined}
-                onClick={() => !c.isDraft && !c.isEnded && navigateLegacy('pg-gifts-detail')}
-              >
-                <td>
-                  <strong>{c.name}</strong>
-                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{c.subtitle}</div>
-                </td>
-                <td>
-                  <ScopeBadge scope={c.scope} />
-                </td>
-                <td>
-                  <Badge variant={c.statusVariant}>{c.status}</Badge>
-                </td>
-                <td style={{ fontSize: 12, color: c.isEnded ? 'var(--text3)' : undefined }}>
-                  {c.dateStart}
-                  {c.dateEnd && (
-                    <>
-                      <br />
-                      <span style={{ color: 'var(--text3)' }}>{c.dateEnd}</span>
-                    </>
-                  )}
-                </td>
-                <td style={{ fontFamily: "'DM Mono', monospace" }}>{c.pools}</td>
-                <td style={{ fontWeight: 600, color: c.isEnded || c.isDraft ? 'var(--text3)' : undefined }}>
-                  {c.eligible}
-                </td>
-                <td
-                  style={{
-                    fontWeight: 600,
-                    color: c.isEnded || c.isDraft ? 'var(--text3)' : 'var(--gt)',
-                  }}
-                >
-                  {c.redeemed}
-                </td>
-                <td>
-                  {c.isDraft ? (
-                    <Button size="sm" onClick={() => openModal('create-campaign')}>
-                      Edit & Activate
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigateLegacy('pg-gifts-detail');
+        {loading && campaigns.length === 0 ? (
+          <div style={{ padding: 24, color: 'var(--text3)' }}>Loading campaigns…</div>
+        ) : filtered.length === 0 ? (
+          <div style={{ padding: 24, color: 'var(--text3)' }}>
+            No campaigns yet. Create your first gift campaign to get started.
+          </div>
+        ) : (
+          <TableWrap minWidth={760}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Campaign Name</th>
+                  <th>Scope</th>
+                  <th>Status</th>
+                  <th>Date Range</th>
+                  <th>Pools</th>
+                  <th>Eligible</th>
+                  <th>Redeemed</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((c) => {
+                  const row = c as CampaignListItem;
+                  return (
+                  <tr
+                    key={row._id}
+                    className={!row.isDraft && !row.isEnded ? 'cl' : undefined}
+                    onClick={() =>
+                      !row.isDraft && navigateTo(`/gifts/detail?id=${row._id}`)
+                    }
+                  >
+                    <td>
+                      <strong>{row.name}</strong>
+                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{row.subtitle}</div>
+                    </td>
+                    <td>
+                      <ScopeBadge scope={row.scope} />
+                    </td>
+                    <td>
+                      <Badge variant={row.statusVariant}>{row.status}</Badge>
+                    </td>
+                    <td style={{ fontSize: 12, color: row.isEnded ? 'var(--text3)' : undefined }}>
+                      {row.dateStart}
+                      {row.dateEnd && (
+                        <>
+                          <br />
+                          <span style={{ color: 'var(--text3)' }}>{row.dateEnd}</span>
+                        </>
+                      )}
+                    </td>
+                    <td style={{ fontFamily: "'DM Mono', monospace" }}>{row.pools}</td>
+                    <td
+                      style={{
+                        fontWeight: 600,
+                        color: row.isEnded || row.isDraft ? 'var(--text3)' : undefined,
                       }}
                     >
-                      {c.isEnded ? 'View' : 'Manage'}
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        </TableWrap>
+                      {row.eligible}
+                    </td>
+                    <td
+                      style={{
+                        fontWeight: 600,
+                        color: row.isEnded || row.isDraft ? 'var(--text3)' : 'var(--gt)',
+                      }}
+                    >
+                      {row.redeemed}
+                    </td>
+                    <td>
+                      {row.isDraft ? (
+                        <Button size="sm" onClick={() => openModal('create-campaign')}>
+                          Edit & Activate
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigateTo(`/gifts/detail?id=${row._id}`);
+                          }}
+                        >
+                          {row.isEnded ? 'View' : 'Manage'}
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </TableWrap>
+        )}
       </Card>
     </>
   );

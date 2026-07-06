@@ -9,9 +9,12 @@ import { TabBar } from '../../components/ui/TabBar';
 import { TableWrap } from '../../components/ui/TableWrap';
 import { Toggle } from '../../components/ui/Toggle';
 import { useApp } from '../../context/AppContext';
+import { useTenantData } from '../../context/TenantDataContext';
 import { useModal } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
-import { teamMembers } from '../../data/mock';
+import { billingApi } from '../../api/billing';
+import { useAuthStore } from '../../store/authStore';
+import { formatApiDate, invoiceStatusVariant } from '../../utils/mappers';
 import { useTabs } from '../../hooks/useTabs';
 
 type SettingsTab = 'general' | 'team' | 'billing' | 'notifications' | 'gift';
@@ -25,10 +28,26 @@ const TABS = [
 ];
 
 export function OwnerSettingsPage() {
-  const { clientType, companyName, currency, setCurrency } = useApp();
+  const { clientType, companyName, currency, setCurrency, verifyDomain, scBand, smsCredits, pinCredits } = useApp();
+  const user = useAuthStore((s) => s.user);
+  const { team, products, invoices, refreshInvoices } = useTenantData();
   const { openModal } = useModal();
   const { showToast } = useToast();
   const { active, setActive } = useTabs<SettingsTab>('general');
+
+  const payInvoice = async (invoiceId: string) => {
+    try {
+      const result = await billingApi.initializePayment(invoiceId, user?.email);
+      if (result.authorization_url) {
+        window.open(result.authorization_url, '_blank', 'noopener,noreferrer');
+        showToast('Complete payment in the Paystack window.', 'success');
+      } else {
+        showToast('Online payment not available — contact Sartor to pay this invoice.', 'warn');
+      }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not start payment.', 'error');
+    }
+  };
 
   return (
     <>
@@ -39,29 +58,29 @@ export function OwnerSettingsPage() {
       {active === 'general' && (
         <Card>
           <FormGroup label="Company Name">
-            <input className="inp" defaultValue={companyName} />
+            <input className="inp" defaultValue={companyName} readOnly />
           </FormGroup>
           <div className="fr2">
             <FormGroup label="RC Number">
-              <input className="inp" defaultValue="RC 1234567" readOnly />
+              <input className="inp" defaultValue={user?.rcNumber || '—'} readOnly />
             </FormGroup>
             <FormGroup label="Industry">
-              <input className="inp" defaultValue="FMCG / Personal Care" readOnly />
+              <input className="inp" defaultValue={user?.industry || '—'} readOnly />
             </FormGroup>
           </div>
           <div className="fr2">
             <FormGroup label="Contact Name">
-              <input className="inp" defaultValue="Nnamdi Okafor" />
+              <input className="inp" defaultValue={user?.fullName || ''} readOnly />
             </FormGroup>
             <FormGroup label="Contact Email">
-              <input className="inp" defaultValue="nnamdi@sartorhealth.com" />
+              <input className="inp" defaultValue={user?.email || ''} readOnly />
             </FormGroup>
           </div>
           <FormGroup label="Consumer Verification URL">
             <div style={{ display: 'flex', gap: 8 }}>
               <input
                 className="inp"
-                defaultValue="https://verify-sartorhealth.sartor.ng"
+                defaultValue={`https://${verifyDomain}`}
                 readOnly
                 style={{ flex: 1 }}
               />
@@ -86,13 +105,13 @@ export function OwnerSettingsPage() {
           <FormGroup label="Platform Engagement">
             <div style={{ padding: '11px 13px', background: 'var(--gb)', borderRadius: 8, fontSize: 12 }}>
               <div style={{ fontWeight: 700, color: 'var(--gt)', marginBottom: 4 }}>
-                Full Deployment — 21–50 SKU Band (₦175,000/SKU/yr)
+                {clientType === 'pilot' ? 'Pilot Programme' : 'Full Deployment'} — {scBand} Band
               </div>
               <div style={{ color: 'var(--gt)', marginBottom: 6 }}>
-                Active since Jan 1, 2026 · 24 SKUs registered · Annual licence renewal: Jan 2027
+                {user?.clientCode ? `Client code: ${user.clientCode}` : 'Client account active'}
               </div>
               <div style={{ fontSize: 11, color: 'var(--gt)' }}>
-                Verification domain: verify.sartor.com · Starter (default)
+                Verification domain: {verifyDomain}
               </div>
             </div>
           </FormGroup>
@@ -224,31 +243,33 @@ export function OwnerSettingsPage() {
               </tr>
             </thead>
             <tbody>
-              {teamMembers.map((m) => (
-                <tr key={m.id}>
-                  <td>
-                    <strong>{m.name}</strong>
+              {team.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text3)', padding: 20 }}>
+                    No team members yet. Invite your first team member.
                   </td>
-                  <td>{m.email}</td>
-                  <td>
-                    <Badge variant={m.roleVariant}>{m.role}</Badge>
-                  </td>
-                  <td>
-                    <Badge variant={m.statusVariant}>{m.status}</Badge>
-                  </td>
-                  <td>
-                    {m.invited ? (
-                      <Button variant="secondary" size="sm" onClick={() => showToast('Invite resent')}>
-                        Resend
-                      </Button>
-                    ) : (
+                </tr>
+              ) : (
+                team.map((m) => (
+                  <tr key={m._id}>
+                    <td>
+                      <strong>{m.fullName}</strong>
+                    </td>
+                    <td>{m.email}</td>
+                    <td>
+                      <Badge variant="bb">{m.role || 'Staff'}</Badge>
+                    </td>
+                    <td>
+                      <Badge variant={m.blocked ? 'br' : 'bg'}>{m.blocked ? 'Blocked' : 'Active'}</Badge>
+                    </td>
+                    <td>
                       <Button variant="secondary" size="sm" onClick={() => openModal('edit-member')}>
                         Edit
                       </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
           </TableWrap>
@@ -283,9 +304,8 @@ export function OwnerSettingsPage() {
           )}
           <div className="credits-grid">
             {[
-              { title: 'Batch Calibration Credits', purchased: 30, used: 12, remaining: 18, pct: 40, color: 'var(--amber)', note: 'Professional bundle: ', noteAmount: 3600000, noteSuffix: ' / 30 credits (₦120,000/batch)' },
-              { title: 'PIN Authentication Credits', purchased: '10,000', used: '1,800', remaining: '8,200', pct: 18, note: 'Entry: ', noteAmount: 150000, noteSuffix: ' / 10,000 PINs · Growth: ', noteAmount2: 600000, noteSuffix2: ' / 50,000 PINs' },
-              { title: 'SMS Notification Credits', purchased: '10,000', used: '4,124', remaining: '5,876', pct: 41, color: 'var(--amber)', remainingColor: 'var(--at)', note: 'Starter: ', noteAmount: 45000, noteSuffix: ' / 10,000 SMS · Standard: ', noteAmount2: 200000, noteSuffix2: ' / 50,000 SMS' },
+              { title: 'PIN Authentication Credits', purchased: pinCredits, used: 0, remaining: pinCredits, pct: pinCredits > 0 ? 100 : 0, note: 'Balance from your Sartor account.' },
+              { title: 'SMS Notification Credits', purchased: smsCredits, used: 0, remaining: smsCredits, pct: smsCredits > 0 ? 100 : 0, color: 'var(--amber)', remainingColor: smsCredits < 1000 ? 'var(--at)' : 'var(--gt)', note: 'Balance from your Sartor account.' },
             ].map((c) => (
               <div key={c.title} className="ccard">
                 <div className="ch">
@@ -322,17 +342,7 @@ export function OwnerSettingsPage() {
                   </div>
                 </div>
                 <ProgressBar percent={c.pct} color={c.color} />
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 5 }}>
-                  {c.note}
-                  <CurrencyAmount nairaAmount={c.noteAmount} />
-                  {c.noteSuffix}
-                  {'noteAmount2' in c && c.noteAmount2 && (
-                    <>
-                      <CurrencyAmount nairaAmount={c.noteAmount2} />
-                      {c.noteSuffix2}
-                    </>
-                  )}
-                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 5 }}>{c.note}</div>
               </div>
             ))}
           </div>
@@ -351,63 +361,83 @@ export function OwnerSettingsPage() {
                 <tr>
                   <th>Product</th>
                   <th>SKU</th>
-                  <th>Annual Fee</th>
                   <th>Status</th>
-                  <th>Renewal</th>
+                  <th>Registered</th>
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { product: 'Sartor Hand Sanitiser 500ml', sku: 'SHS-001' },
-                  { product: 'Carabiner Holder Pack', sku: 'CHP-002' },
-                  { product: 'Silicone Holder/Hook Pack', sku: 'SHP-003' },
-                ].map((row) => (
-                  <tr key={row.sku}>
-                    <td>{row.product}</td>
-                    <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{row.sku}</td>
-                    <td>
-                      <CurrencyAmount nairaAmount={175000} />
+                {products.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text3)', padding: 16 }}>
+                      No products registered yet.
                     </td>
-                    <td>
-                      <Badge variant="bg">Active</Badge>
-                    </td>
-                    <td>Jan 2027</td>
                   </tr>
-                ))}
+                ) : (
+                  products.map((p) => (
+                    <tr key={p._id}>
+                      <td>{p.productName}</td>
+                      <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{p.batchId || p.barcodeNumber || '—'}</td>
+                      <td>
+                        <Badge variant={p.status === 'In-Stock' ? 'bg' : 'ba'}>{p.status || 'Active'}</Badge>
+                      </td>
+                      <td>{formatApiDate(p.creationDateTime)}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
             </TableWrap>
           </Card>
           <Card>
-            <CardHeader title="Transaction History" />
+            <CardHeader
+              title="Transaction History"
+              action={
+                <Button variant="secondary" size="sm" onClick={() => refreshInvoices()}>
+                  Refresh
+                </Button>
+              }
+            />
             <TableWrap minWidth={520}>
             <table>
               <thead>
                 <tr>
+                  <th>Invoice</th>
                   <th>Date</th>
                   <th>Description</th>
                   <th>Amount</th>
                   <th>Status</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
-                {[
-                  { date: 'Apr 1, 2026', desc: 'SMS Credits — Starter (10,000)', amount: 45000 },
-                  { date: 'Mar 15, 2026', desc: 'PIN Auth Credits — Entry (10,000)', amount: 150000 },
-                  { date: 'Jan 1, 2026', desc: 'Annual SKU Licences — 21–50 band (24 × ₦175,000)', amount: 4200000 },
-                  { date: 'Dec 1, 2025', desc: 'Batch Calibration Credits — Professional Bundle (30 credits)', amount: 3600000 },
-                ].map((row) => (
-                  <tr key={row.date + row.desc}>
-                    <td>{row.date}</td>
-                    <td>{row.desc}</td>
-                    <td>
-                      <CurrencyAmount nairaAmount={row.amount} />
-                    </td>
-                    <td>
-                      <Badge variant="bg">Paid</Badge>
+                {invoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text3)', padding: 16 }}>
+                      No invoices yet. Invoices from onboarding and billing appear here.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  invoices.map((row) => (
+                    <tr key={row._id}>
+                      <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{row.invoiceId}</td>
+                      <td>{formatApiDate(row.issuedAt || row.creationDateTime)}</td>
+                      <td>{row.description}</td>
+                      <td>
+                        <CurrencyAmount nairaAmount={row.amount} />
+                      </td>
+                      <td>
+                        <Badge variant={invoiceStatusVariant(row.status)}>{row.status}</Badge>
+                      </td>
+                      <td>
+                        {(row.status === 'Pending' || row.status === 'Due Soon' || row.status === 'Overdue') && (
+                          <Button variant="success" size="sm" onClick={() => payInvoice(row._id)}>
+                            Pay
+                          </Button>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
             </TableWrap>
