@@ -2,9 +2,29 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { RoleId } from '../types';
 
+export interface NotificationPrefs {
+  investigationAlerts: boolean;
+  doraTrainingComplete: boolean;
+  smsCreditThreshold: boolean;
+  pinCreditThreshold: boolean;
+  skuRenewalReminders: boolean;
+  weeklySummary: boolean;
+}
+
+export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
+  investigationAlerts: true,
+  doraTrainingComplete: true,
+  smsCreditThreshold: true,
+  pinCreditThreshold: true,
+  skuRenewalReminders: true,
+  weeklySummary: true,
+};
+
 export interface TenantProfile {
   _id: string;
   fullName: string;
+  /** Primary contact person (tenant owner settings) */
+  contactName?: string;
   /** Staff member display name when accountType is user */
   displayName?: string;
   email: string;
@@ -28,6 +48,7 @@ export interface TenantProfile {
   crmTier?: string | null;
   crmSeats?: number;
   campaignStacking?: boolean;
+  notificationPrefs?: NotificationPrefs;
   platformStatus?: string;
 }
 

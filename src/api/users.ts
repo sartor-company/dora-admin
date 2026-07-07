@@ -18,4 +18,17 @@ export const usersApi = {
     const res = await apiClient.post('/user/create', body);
     return unwrap<ApiTeamMember>(res);
   },
+
+  update: async (
+    id: string,
+    body: {
+      fullName?: string;
+      phone?: string;
+      consoleRole?: 'batch' | 'brand' | 'inv';
+      blocked?: boolean;
+    },
+  ) => {
+    const res = await apiClient.patch(`/user/team/${id}`, body);
+    return unwrap<ApiTeamMember>(res);
+  },
 };

@@ -1,5 +1,6 @@
 import type { RoleId } from '../types';
-import type { TenantProfile } from '../store/authStore';
+import type { NotificationPrefs, TenantProfile } from '../store/authStore';
+import { DEFAULT_NOTIFICATION_PREFS } from '../store/authStore';
 
 export function resolveConsoleRole(data: {
   accountType: string;
@@ -25,6 +26,7 @@ export function mapLoginToProfile(data: Record<string, unknown>): TenantProfile 
   return {
     _id: data._id as string,
     fullName: companyName,
+    contactName: (data.contactName as string) || undefined,
     displayName: accountType === 'user' ? (data.fullName as string) : undefined,
     email: data.email as string,
     token: data.token as string,
@@ -47,6 +49,18 @@ export function mapLoginToProfile(data: Record<string, unknown>): TenantProfile 
     crmTier: data.crmTier as string | null | undefined,
     crmSeats: data.crmSeats as number | undefined,
     campaignStacking: data.campaignStacking as boolean | undefined,
+    notificationPrefs: {
+      ...DEFAULT_NOTIFICATION_PREFS,
+      ...((data.notificationPrefs as Partial<NotificationPrefs>) || {}),
+    },
     platformStatus: data.platformStatus as string | undefined,
   };
+}
+
+export function mapAccountToProfile(
+  data: Record<string, unknown>,
+  token: string,
+): TenantProfile {
+  const base = mapLoginToProfile({ ...data, token });
+  return base;
 }

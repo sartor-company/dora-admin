@@ -1,14 +1,18 @@
 interface ToggleProps {
+  on?: boolean;
   defaultOn?: boolean;
+  onChange?: (on: boolean) => void;
 }
 
-export function Toggle({ defaultOn = false }: ToggleProps) {
+export function Toggle({ on, defaultOn = false, onChange }: ToggleProps) {
+  const active = on ?? defaultOn;
+
   return (
     <button
       type="button"
-      className={`toggle ${defaultOn ? 'on' : ''}`}
-      onClick={(e) => e.currentTarget.classList.toggle('on')}
-      aria-pressed={defaultOn}
+      className={`toggle ${active ? 'on' : ''}`}
+      onClick={() => onChange?.(!active)}
+      aria-pressed={active}
     />
   );
 }

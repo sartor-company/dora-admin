@@ -8,6 +8,11 @@ import {
 } from 'react';
 import type { ModalId } from '../types';
 import type { ApiProduct } from '../types/api';
+import type { ApiTeamMember } from '../types/api';
+
+export interface EditMemberPayload {
+  member: ApiTeamMember;
+}
 
 export interface FlagBatchPayload {
   batchId: string;
@@ -40,7 +45,8 @@ export type ModalPayload =
   | FlagBatchPayload
   | ReplenishGiftPayload
   | AddGiftPayload
-  | ProductModalPayload;
+  | ProductModalPayload
+  | EditMemberPayload;
 
 interface ModalContextValue {
   openModal: (id: ModalId, payload?: ModalPayload) => void;

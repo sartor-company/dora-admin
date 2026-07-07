@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react';
 import { authApi } from '../api/auth';
+import { mapAccountToProfile } from '../utils/mapAuth';
 import { batchesApi } from '../api/batches';
 import { billingApi } from '../api/billing';
 import type { PlatformInvoice } from '../api/billing';
@@ -129,7 +130,10 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
 
   const refreshAccount = useCallback(async () => {
     const profile = await authApi.getAccount();
-    updateProfile({ ...profile, token: useAuthStore.getState().token! });
+    const token = useAuthStore.getState().token;
+    if (token) {
+      updateProfile(mapAccountToProfile(profile as unknown as Record<string, unknown>, token));
+    }
   }, [updateProfile]);
 
   const refreshAll = useCallback(async () => {

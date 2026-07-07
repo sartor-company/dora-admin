@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { authApi } from '../api/auth';
 import { CURRENCIES } from '../constants/currency';
 import { useApp } from '../context/AppContext';
 import { useTenantData } from '../context/TenantDataContext';
@@ -21,9 +22,11 @@ import { ProductCreateModal } from './ProductCreateModal';
 import { FlagBatchModal } from './FlagBatchModal';
 import { ReplenishGiftModal } from './ReplenishGiftModal';
 import { AddGiftModal } from './AddGiftModal';
+import { EditMemberModal } from './EditMemberModal';
+import type { EditMemberPayload } from '../context/ModalContext';
 
 export function ModalsRoot() {
-  const { isOpen, closeModal } = useModal();
+  const { isOpen, closeModal, getPayload } = useModal();
   const { currency, setCurrency } = useApp();
   const { doraUploadTarget, refreshBatches, products, refreshCampaigns, refreshInvoices, notifyGiftChange } = useTenantData();
   const { showToast } = useToast();
@@ -80,7 +83,12 @@ export function ModalsRoot() {
         }}
       />
 
-      <EditMemberModal open={isOpen('edit-member')} onClose={close('edit-member')} showToast={showToast} />
+      <EditMemberModal
+        open={isOpen('edit-member')}
+        member={getPayload<EditMemberPayload>('edit-member')?.member}
+        onClose={close('edit-member')}
+        onSuccess={(msg) => showToast(msg, 'success')}
+      />
 
       <BuyCreditsModal
         open={isOpen('buy-credits')}
@@ -234,40 +242,21 @@ export function ModalsRoot() {
         </ModalFooter>
       </Modal>
 
-      <Modal open={isOpen('convert-deployment')} onClose={close('convert-deployment')} title="Convert to Full Deployment" width={460}>
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
-          Your pilot fee of <CurrencyAmount nairaAmount={3500000} /> is credited in full against the ₦4,500,000 onboarding fee — effective cost <CurrencyAmount nairaAmount={1000000} />.
-        </div>
-        <FormGroup label="Notes for account manager (optional)">
-          <textarea className="inp" rows={2} placeholder="Any questions or requirements..." style={{ resize: 'vertical' }} />
-        </FormGroup>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('convert-deployment')}>Cancel</Button>
-          <Button onClick={() => { closeModal('convert-deployment'); showToast('Conversion request submitted. Your account manager will contact you within 2 business days.'); }}>Request Conversion</Button>
-        </ModalFooter>
-      </Modal>
+      <AccountRequestModal
+        open={isOpen('convert-deployment')}
+        onClose={close('convert-deployment')}
+        type="pilot_conversion"
+        title="Convert to Full Deployment"
+        showToast={showToast}
+      />
 
-      <Modal open={isOpen('domain-upgrade')} onClose={close('domain-upgrade')} title="Request Domain Upgrade" width={440}>
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
-          Domain upgrades are provisioned by Sartor. Your account manager will contact you within 2 business days.
-        </div>
-        <FormGroup label="Preferred Domain Type">
-          <select className="inp">
-            <option>Growth Subdomain (verify-{'{code}'}.sartor.ng) — ₦100,000 one-time</option>
-            <option>Enterprise CNAME (your own domain) — ₦150,000 setup + ₦200,000/yr</option>
-          </select>
-        </FormGroup>
-        <FormGroup label="Preferred Subdomain / Domain Name">
-          <input className="inp" placeholder="e.g. verify-health or verify.yourdomain.com" />
-        </FormGroup>
-        <FormGroup label="Additional Notes">
-          <textarea className="inp" rows={2} placeholder="Any specific requirements..." style={{ resize: 'vertical' }} />
-        </FormGroup>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('domain-upgrade')}>Cancel</Button>
-          <Button onClick={() => { closeModal('domain-upgrade'); showToast('Domain upgrade request submitted. Your account manager will be in touch within 2 business days.'); }}>Submit Request</Button>
-        </ModalFooter>
-      </Modal>
+      <AccountRequestModal
+        open={isOpen('domain-upgrade')}
+        onClose={close('domain-upgrade')}
+        type="domain_upgrade"
+        title="Request Domain Upgrade"
+        showToast={showToast}
+      />
 
       <CampaignWizardModal
         open={isOpen('create-campaign')}
@@ -325,6 +314,113 @@ export function ModalsRoot() {
   );
 }
 
+function AccountRequestModal({
+  open,
+  onClose,
+  type,
+  title,
+  showToast,
+}: {
+  open: boolean;
+  onClose: () => void;
+  type: 'domain_upgrade' | 'pilot_conversion';
+  title: string;
+  showToast: (msg: string, type?: 'success' | 'error' | 'warn') => void;
+}) {
+  const [domainTier, setDomainTier] = useState<'growth' | 'enterprise'>('growth');
+  const [preferredDomain, setPreferredDomain] = useState('');
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const reset = () => {
+    setDomainTier('growth');
+    setPreferredDomain('');
+    setNotes('');
+  };
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  };
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    try {
+      await authApi.submitRequest({
+        type,
+        domainTier: type === 'domain_upgrade' ? domainTier : undefined,
+        preferredDomain: preferredDomain.trim() || undefined,
+        notes: notes.trim() || undefined,
+      });
+      handleClose();
+      showToast(
+        type === 'domain_upgrade'
+          ? 'Domain upgrade request submitted. Your account manager will be in touch within 2 business days.'
+          : 'Conversion request submitted. Your account manager will contact you within 2 business days.',
+        'success',
+      );
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not submit request.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={handleClose} title={title} width={type === 'domain_upgrade' ? 440 : 460}>
+      {type === 'pilot_conversion' ? (
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
+          Your pilot fee of <CurrencyAmount nairaAmount={3500000} /> is credited in full against the ₦4,500,000 onboarding fee — effective cost <CurrencyAmount nairaAmount={1000000} />.
+        </div>
+      ) : (
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
+          Domain upgrades are provisioned by Sartor. Your account manager will contact you within 2 business days.
+        </div>
+      )}
+      {type === 'domain_upgrade' && (
+        <>
+          <FormGroup label="Preferred Domain Type">
+            <select
+              className="inp"
+              value={domainTier}
+              onChange={(e) => setDomainTier(e.target.value as 'growth' | 'enterprise')}
+            >
+              <option value="growth">Growth Subdomain (verify-{'{code}'}.sartor.ng) — ₦100,000 one-time</option>
+              <option value="enterprise">Enterprise CNAME (your own domain) — ₦150,000 setup + ₦200,000/yr</option>
+            </select>
+          </FormGroup>
+          <FormGroup label="Preferred Subdomain / Domain Name">
+            <input
+              className="inp"
+              placeholder="e.g. verify-health or verify.yourdomain.com"
+              value={preferredDomain}
+              onChange={(e) => setPreferredDomain(e.target.value)}
+            />
+          </FormGroup>
+        </>
+      )}
+      <FormGroup label={type === 'pilot_conversion' ? 'Notes for account manager (optional)' : 'Additional Notes'}>
+        <textarea
+          className="inp"
+          rows={2}
+          placeholder="Any questions or requirements..."
+          style={{ resize: 'vertical' }}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </FormGroup>
+      <ModalFooter>
+        <Button variant="secondary" onClick={handleClose} disabled={saving}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} disabled={saving}>
+          {saving ? 'Submitting…' : type === 'domain_upgrade' ? 'Submit Request' : 'Request Conversion'}
+        </Button>
+      </ModalFooter>
+    </Modal>
+  );
+}
+
 function CurrencyModal({
   open,
   onClose,
@@ -363,61 +459,6 @@ function CurrencyModal({
           </button>
         ))}
       </div>
-    </Modal>
-  );
-}
-
-function EditMemberModal({
-  open,
-  onClose,
-  showToast,
-}: {
-  open: boolean;
-  onClose: () => void;
-  showToast: (msg: string, type?: 'success' | 'error' | 'warn') => void;
-}) {
-  const [suspended, setSuspended] = useState(false);
-
-  return (
-    <Modal open={open} onClose={onClose} title="Edit Team Member" width={460}>
-      <FormGroup label="Full Name">
-        <input className="inp" defaultValue="Sarah Adeyemi" />
-      </FormGroup>
-      <FormGroup label="Email Address">
-        <input className="inp" defaultValue="sarah@sartorhealth.com" readOnly />
-      </FormGroup>
-      <FormGroup label="Role">
-        <select className="inp">
-          <option>Batch Admin</option>
-          <option>Brand Manager</option>
-          <option>Investigation Officer</option>
-        </select>
-      </FormGroup>
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 12, marginTop: 6 }}>
-        <div className="twrap" style={{ padding: '8px 0' }}>
-          <div>
-            <div className="tlbl" style={{ fontSize: 12 }}>Account Status</div>
-            <div className="tdesc">Member can currently log in and use the platform</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <Badge variant={suspended ? 'br' : 'bg'}>{suspended ? 'Suspended' : 'Active'}</Badge>
-            <Button
-              variant={suspended ? 'success' : 'danger'}
-              size="sm"
-              onClick={() => {
-                setSuspended(!suspended);
-                showToast(suspended ? 'Team member access reinstated.' : 'Team member access suspended.', suspended ? 'success' : 'warn');
-              }}
-            >
-              {suspended ? 'Reinstate Access' : 'Suspend Access'}
-            </Button>
-          </div>
-        </div>
-      </div>
-      <ModalFooter>
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { onClose(); showToast('Team member updated successfully.'); }}>Save Changes</Button>
-      </ModalFooter>
     </Modal>
   );
 }

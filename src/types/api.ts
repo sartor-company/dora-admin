@@ -48,5 +48,6 @@ export interface ApiTeamMember {
   email: string;
   phone?: string;
   role?: string;
+  consoleRole?: 'batch' | 'brand' | 'inv';
   blocked?: boolean;
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardHeader } from '../../components/ui/Card';
@@ -12,11 +12,14 @@ import { Toggle } from '../../components/ui/Toggle';
 import { useApp } from '../../context/AppContext';
 import { useTenantData } from '../../context/TenantDataContext';
 import { useModal } from '../../context/ModalContext';
+import type { EditMemberPayload } from '../../context/ModalContext';
 import { useToast } from '../../context/ToastContext';
 import { billingApi } from '../../api/billing';
 import { authApi } from '../../api/auth';
-import { useAuthStore } from '../../store/authStore';
+import { useAuthStore, DEFAULT_NOTIFICATION_PREFS, type NotificationPrefs } from '../../store/authStore';
 import { formatApiDate, invoiceStatusVariant } from '../../utils/mappers';
+import { teamMemberRoleLabel } from '../../utils/consoleRoles';
+import { mapAccountToProfile } from '../../utils/mapAuth';
 import { useTabs } from '../../hooks/useTabs';
 
 type SettingsTab = 'general' | 'team' | 'billing' | 'notifications' | 'gift';
@@ -29,17 +32,91 @@ const TABS = [
   { id: 'gift' as const, label: 'Gift Engine' },
 ];
 
+const NOTIFICATION_ITEMS: { key: keyof NotificationPrefs; label: string; desc: string }[] = [
+  { key: 'investigationAlerts', label: 'P1/P2 investigation alerts', desc: 'Immediate email on critical fraud flags' },
+  { key: 'doraTrainingComplete', label: 'DORA training completion', desc: 'Email when a model is ready to deploy' },
+  { key: 'smsCreditThreshold', label: 'SMS credit threshold alert (20%)', desc: 'Alert before SMS credits run low' },
+  { key: 'pinCreditThreshold', label: 'PIN credit threshold alert (20%)', desc: 'Alert before PIN credits run low' },
+  { key: 'skuRenewalReminders', label: 'SKU licence renewal reminders', desc: '30 and 7 days before each annual renewal' },
+  { key: 'weeklySummary', label: 'Weekly platform summary', desc: 'Every Monday 9am WAT' },
+];
+
 export function OwnerSettingsPage() {
   const { clientType, companyName, currency, setCurrency, verifyDomain, scBand, smsCredits, pinCredits } = useApp();
   const user = useAuthStore((s) => s.user);
-  const { team, products, invoices, refreshInvoices } = useTenantData();
+  const updateProfile = useAuthStore((s) => s.updateProfile);
+  const { team, products, invoices, refreshInvoices, refreshAccount } = useTenantData();
   const { openModal } = useModal();
   const { showToast } = useToast();
   const { active, setActive } = useTabs<SettingsTab>('general');
+  const [contactName, setContactName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
+  const [notifSaving, setNotifSaving] = useState(false);
+  const [campaignStacking, setCampaignStacking] = useState(false);
+  const [giftSaving, setGiftSaving] = useState(false);
   const [pwOld, setPwOld] = useState('');
   const [pw1, setPw1] = useState('');
   const [pw2, setPw2] = useState('');
   const [pwSaving, setPwSaving] = useState(false);
+
+  useEffect(() => {
+    setContactName(user?.contactName || user?.fullName || '');
+    setPhone(user?.phone || '');
+    setAddress(user?.address || '');
+    setNotifPrefs({ ...DEFAULT_NOTIFICATION_PREFS, ...user?.notificationPrefs });
+    setCampaignStacking(!!user?.campaignStacking);
+  }, [user]);
+
+  const saveProfile = async () => {
+    setProfileSaving(true);
+    try {
+      const updated = await authApi.patchAccount({
+        contactName: contactName.trim(),
+        phone: phone.trim(),
+        address: address.trim(),
+      });
+      updateProfile(mapAccountToProfile(updated as unknown as Record<string, unknown>, user?.token || ''));
+      showToast('Profile saved successfully.', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not save profile.', 'error');
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const saveNotificationPrefs = async (next: NotificationPrefs) => {
+    setNotifPrefs(next);
+    setNotifSaving(true);
+    try {
+      const updated = await authApi.patchAccount({ notificationPrefs: next });
+      updateProfile(mapAccountToProfile(updated as unknown as Record<string, unknown>, user?.token || ''));
+      showToast('Notification preferences saved.', 'success');
+    } catch (e) {
+      setNotifPrefs({ ...DEFAULT_NOTIFICATION_PREFS, ...user?.notificationPrefs });
+      showToast(e instanceof Error ? e.message : 'Could not save preferences.', 'error');
+    } finally {
+      setNotifSaving(false);
+    }
+  };
+
+  const saveGiftConfig = async (stacking: boolean) => {
+    setCampaignStacking(stacking);
+    setGiftSaving(true);
+    try {
+      const updated = await authApi.patchAccount({ campaignStacking: stacking });
+      updateProfile(mapAccountToProfile(updated as unknown as Record<string, unknown>, user?.token || ''));
+      await refreshAccount();
+      showToast('Gift engine settings saved.', 'success');
+    } catch (e) {
+      setCampaignStacking(!!user?.campaignStacking);
+      showToast(e instanceof Error ? e.message : 'Could not save gift settings.', 'error');
+    } finally {
+      setGiftSaving(false);
+    }
+  };
 
   const changePassword = async () => {
     if (!pwOld || !pw1 || pw1 !== pw2) {
@@ -95,10 +172,18 @@ export function OwnerSettingsPage() {
           </div>
           <div className="fr2">
             <FormGroup label="Contact Name">
-              <input className="inp" defaultValue={user?.fullName || ''} readOnly />
+              <input className="inp" value={contactName} onChange={(e) => setContactName(e.target.value)} />
             </FormGroup>
             <FormGroup label="Contact Email">
               <input className="inp" defaultValue={user?.email || ''} readOnly />
+            </FormGroup>
+          </div>
+          <div className="fr2">
+            <FormGroup label="Phone">
+              <input className="inp" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            </FormGroup>
+            <FormGroup label="Address">
+              <input className="inp" value={address} onChange={(e) => setAddress(e.target.value)} />
             </FormGroup>
           </div>
           <FormGroup label="Consumer Verification URL">
@@ -265,8 +350,8 @@ export function OwnerSettingsPage() {
               {pwSaving ? 'Updating…' : 'Update Password'}
             </Button>
           </div>
-          <Button style={{ marginTop: 6 }} onClick={() => showToast('Profile fields are managed by Sartor during onboarding.')}>
-            Save Changes
+          <Button style={{ marginTop: 6 }} onClick={saveProfile} disabled={profileSaving}>
+            {profileSaving ? 'Saving…' : 'Save Changes'}
           </Button>
         </Card>
       )}
@@ -319,13 +404,17 @@ export function OwnerSettingsPage() {
                     </td>
                     <td>{m.email}</td>
                     <td>
-                      <Badge variant="bb">{m.role || 'Staff'}</Badge>
+                      <Badge variant="bb">{teamMemberRoleLabel(m)}</Badge>
                     </td>
                     <td>
                       <Badge variant={m.blocked ? 'br' : 'bg'}>{m.blocked ? 'Blocked' : 'Active'}</Badge>
                     </td>
                     <td>
-                      <Button variant="secondary" size="sm" onClick={() => openModal('edit-member')}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => openModal('edit-member', { member: m } satisfies EditMemberPayload)}
+                      >
                         Edit
                       </Button>
                     </td>
@@ -523,22 +612,23 @@ export function OwnerSettingsPage() {
 
       {active === 'notifications' && (
         <Card>
-          {[
-            { label: 'P1/P2 investigation alerts', desc: 'Immediate email on critical fraud flags', on: true },
-            { label: 'DORA training completion', desc: 'Email when a model is ready to deploy', on: true },
-            { label: 'SMS credit threshold alert (20%)', desc: 'Alert before SMS credits run low', on: true },
-            { label: 'PIN credit threshold alert (20%)', desc: 'Alert before PIN credits run low', on: true },
-            { label: 'SKU licence renewal reminders', desc: '30 and 7 days before each annual renewal', on: true },
-            { label: 'Weekly platform summary', desc: 'Every Monday 9am WAT', on: true },
-          ].map((item) => (
-            <div key={item.label} className="twrap">
+          {NOTIFICATION_ITEMS.map((item) => (
+            <div key={item.key} className="twrap">
               <div>
                 <div className="tlbl">{item.label}</div>
                 <div className="tdesc">{item.desc}</div>
               </div>
-              <Toggle defaultOn={item.on} />
+              <Toggle
+                on={notifPrefs[item.key]}
+                onChange={(on) =>
+                  saveNotificationPrefs({ ...notifPrefs, [item.key]: on })
+                }
+              />
             </div>
           ))}
+          {notifSaving && (
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>Saving…</div>
+          )}
         </Card>
       )}
 
@@ -550,8 +640,19 @@ export function OwnerSettingsPage() {
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 13 }}>
             Controls how loyalty campaigns and gift distribution behave for your consumers.
           </div>
+          <div className="twrap">
+            <div>
+              <div className="tlbl">Gift campaign stacking</div>
+              <div className="tdesc">
+                Allow consumers to win gifts from multiple simultaneous campaigns per scan. Default: OFF. FIRST_AUTH gifts are always awarded regardless of this setting.
+              </div>
+            </div>
+            <Toggle
+              on={campaignStacking}
+              onChange={(on) => saveGiftConfig(on)}
+            />
+          </div>
           {[
-            { label: 'Gift campaign stacking', desc: 'Allow consumers to win gifts from multiple simultaneous campaigns per scan. Default: OFF. FIRST_AUTH gifts are always awarded regardless of this setting.', on: false },
             { label: 'Consumer loyalty points (10 per auth)', desc: 'Award 10 points per authenticated post-purchase scan', on: true },
             { label: 'First authentication welcome gift (FIRST_AUTH)', desc: "Trigger gift notification on consumer's first ever authentication", on: true },
             { label: '10th authentication milestone gift', desc: "Trigger a gift on consumer's 10th authenticated product", on: true },
@@ -562,9 +663,12 @@ export function OwnerSettingsPage() {
                 <div className="tlbl">{item.label}</div>
                 <div className="tdesc">{item.desc}</div>
               </div>
-              <Toggle defaultOn={item.on} />
+              <Toggle on={item.on} />
             </div>
           ))}
+          {giftSaving && (
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>Saving…</div>
+          )}
           <div
             style={{
               padding: 10,
