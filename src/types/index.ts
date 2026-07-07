@@ -19,12 +19,13 @@ export type NavIconKey =
   | 'check'
   | 'chart2';
 
-export interface NavItem {
+export type NavItem = {
   label: string;
   icon: NavIconKey;
   path: string;
-  badge?: number;
-}
+  /** Badge key resolved from live tenant data */
+  badgeKey?: 'actions' | 'fraud' | 'investigations' | 'notifications';
+};
 
 export interface NavSection {
   title: string;
@@ -65,4 +66,9 @@ export type ModalId =
   | 'pause-warn'
   | 'end-warn'
   | 'replenish'
-  | 'add-gift';
+  | 'add-gift'
+  | 'place-sticker-order'
+  | 'activate-sticker-batch'
+  | 'payment-gateway'
+  | 'invoice-view'
+  | 'add-sku-licences';

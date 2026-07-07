@@ -1,21 +1,18 @@
-import { useState } from 'react';
-import { authApi } from '../api/auth';
 import { CURRENCIES } from '../constants/currency';
 import { useApp } from '../context/AppContext';
 import { useTenantData } from '../context/TenantDataContext';
 import { giftsApi } from '../api/gifts';
+import { authApi } from '../api/auth';
 import { useModal } from '../context/ModalContext';
 import { useToast } from '../context/ToastContext';
-import { Badge } from '../components/ui/Badge';
 import { Button } from '../components/ui/Button';
 import { CurrencyAmount } from '../components/ui/CurrencyAmount';
-import { FormGroup } from '../components/ui/FormGroup';
 import { Modal, ModalFooter } from '../components/ui/Modal';
-import { Toggle } from '../components/ui/Toggle';
 import type { CurrencyCode } from '../types';
 import { BatchCreateModal } from './BatchCreateModal';
 import { BuyCreditsModal } from './BuyCreditsModal';
 import { CampaignWizardModal } from './CampaignWizardModal';
+import { CampaignEndModal, CampaignPauseModal } from './CampaignActionModals';
 import { DoraUploadModal } from './DoraUploadModal';
 import { InviteMemberModal } from './InviteMemberModal';
 import { ProductCreateModal } from './ProductCreateModal';
@@ -23,7 +20,17 @@ import { FlagBatchModal } from './FlagBatchModal';
 import { ReplenishGiftModal } from './ReplenishGiftModal';
 import { AddGiftModal } from './AddGiftModal';
 import { EditMemberModal } from './EditMemberModal';
-import type { EditMemberPayload } from '../context/ModalContext';
+import { BatchDownloadModal, BatchPauseModal } from './BatchActionModals';
+import { ClearFalsePositiveModal, EvidenceBundleModal } from './InvestigationActionModals';
+import { ReportsModal } from './ReportsModal';
+import type { BatchActionPayload, EditMemberPayload, ActivateStickerBatchPayload, PaymentGatewayPayload } from '../context/ModalContext';
+import { PlaceStickerOrderModal } from './PlaceStickerOrderModal';
+import { ActivateStickerBatchModal } from './ActivateStickerBatchModal';
+import { DomainUpgradeModal } from './DomainUpgradeModal';
+import { PaymentGatewayModal } from './PaymentGatewayModal';
+import { InvoiceViewModal } from './InvoiceViewModal';
+import { AddSkuLicencesModal } from './AddSkuLicencesModal';
+import type { InvoiceViewPayload } from '../context/ModalContext';
 
 export function ModalsRoot() {
   const { isOpen, closeModal, getPayload } = useModal();
@@ -120,143 +127,64 @@ export function ModalsRoot() {
 
       <ReportsModal open={isOpen('reports')} onClose={close('reports')} showToast={showToast} />
 
-      <Modal open={isOpen('clear-fp')} onClose={close('clear-fp')} title="Clear as False Positive" width={440}>
-        <div style={{ padding: 12, background: 'var(--gb)', borderRadius: 8, marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--gt)', marginBottom: 4 }}>
-            ✓ This will resolve INV-087 as a false positive
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--gt)' }}>
-            The investigation will be closed and marked CLEARED. Any batch lock will be lifted.
-          </div>
-        </div>
-        <FormGroup label="Clearance Reason *">
-          <select className="inp">
-            <option>Device/location inconsistency explained</option>
-            <option>Consumer verified identity — genuine purchase confirmed</option>
-            <option>QR scan error (label damage / camera issue)</option>
-            <option>Retailer internal testing scan</option>
-            <option>Other (explain below)</option>
-          </select>
-        </FormGroup>
-        <FormGroup label="Notes">
-          <textarea className="inp" rows={2} placeholder="Optional additional notes..." style={{ resize: 'vertical' }} />
-        </FormGroup>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('clear-fp')}>Cancel</Button>
-          <Button variant="success" onClick={() => { closeModal('clear-fp'); showToast('INV-087 cleared as false positive. Batch lock lifted.'); }}>Clear as False Positive</Button>
-        </ModalFooter>
-      </Modal>
+      <ClearFalsePositiveModal onSuccess={(msg) => showToast(msg, 'success')} />
+      <EvidenceBundleModal onSuccess={(msg) => showToast(msg, 'success')} />
 
-      <Modal open={isOpen('evidence-bundle')} onClose={close('evidence-bundle')} title="Generate Evidence Bundle" width={460}>
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
-          Compiles all forensic data for INV-087 into a structured PDF/ZIP for regulatory or legal submission.
-        </div>
-        <div style={{ display: 'grid', gap: 7, marginBottom: 14, fontSize: 12 }}>
-          {[
-            'DORA AI feature score breakdown (F1–F5)',
-            'Scan timestamp, GPS coordinates, device fingerprint',
-            'Batch origin data and serial number manifest',
-            'Investigation timeline and officer notes',
-            'Cryptographic hash of DORA model at scan time',
-          ].map((item) => (
-            <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, background: 'var(--gb)', borderRadius: 6 }}>
-              <span style={{ color: 'var(--gt)' }}>✓</span>
-              <span>{item}</span>
-            </div>
-          ))}
-        </div>
-        <FormGroup label="Intended Recipient">
-          <select className="inp">
-            <option>Internal record only</option>
-            <option>NAFDAC</option>
-            <option>Nigerian Police Force</option>
-            <option>Legal counsel</option>
-            <option>Other</option>
-          </select>
-        </FormGroup>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('evidence-bundle')}>Cancel</Button>
-          <Button onClick={() => { closeModal('evidence-bundle'); showToast('Evidence bundle generated. Download link sent to nnamdi@sartorhealth.com.'); }}>Generate Bundle</Button>
-        </ModalFooter>
-      </Modal>
+      <BatchDownloadModal
+        open={isOpen('batch-download')}
+        batch={getPayload<BatchActionPayload>('batch-download')}
+        onClose={close('batch-download')}
+      />
 
-      <Modal open={isOpen('batch-download')} onClose={close('batch-download')} title="Download Batch Package" width={460} subtitle="BATCH-042 · Sartor Hand Sanitiser 500ml · 600 units">
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
-          Your batch print package is a ZIP file containing everything needed to print and serialise this batch.
-        </div>
-        <div style={{ display: 'grid', gap: 6, marginBottom: 14, fontSize: 12 }}>
-          {[
-            ['PIN manifest (CSV) · 600 unique PINs', 'Included'],
-            ['Serial number manifest (CSV) · 600 SN-PIN pairs', 'Included'],
-            ['SKU QR code image (PNG) · for label printing', 'Included'],
-            ['Carton QR label (A6 PDF) · 25 cartons', 'Included'],
-            ['Batch summary sheet (PDF)', 'Included'],
-          ].map(([label, badge]) => (
-            <div key={label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 9, background: 'var(--bg)', borderRadius: 6 }}>
-              <span>{label}</span>
-              <Badge variant="bg">{badge}</Badge>
-            </div>
-          ))}
-        </div>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('batch-download')}>Cancel</Button>
-          <Button onClick={() => { closeModal('batch-download'); showToast('BATCH-042 print package downloaded successfully.'); }}>↓ Download ZIP Package</Button>
-        </ModalFooter>
-      </Modal>
+      <BatchPauseModal
+        open={isOpen('batch-pause')}
+        batch={getPayload<BatchActionPayload>('batch-pause')}
+        onClose={close('batch-pause')}
+      />
 
-      <Modal open={isOpen('batch-pause')} onClose={close('batch-pause')} title="Pause Batch?" width={440}>
-        <div style={{ padding: 12, background: 'var(--ab)', borderRadius: 8, marginBottom: 14 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--at)', marginBottom: 4 }}>
-            ⚠ Consumer scans will continue but loyalty points will not accumulate
-          </div>
-          <div style={{ fontSize: 12, color: 'var(--at)' }}>
-            Pausing suspends loyalty point awards and gift eligibility for BATCH-042. Unpause at any time.
-          </div>
-        </div>
-        <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
-          Are you sure you want to pause <strong>BATCH-042</strong>?
-        </p>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('batch-pause')}>Cancel</Button>
-          <Button variant="amber" onClick={() => { closeModal('batch-pause'); showToast('BATCH-042 paused. Loyalty accumulation suspended.'); }}>Pause Batch</Button>
-        </ModalFooter>
-      </Modal>
-
-      <Modal open={isOpen('batch-flag')} onClose={close('batch-flag')} title="Flag Batch for Investigation" width={440}>
-        <div style={{ padding: 12, background: 'var(--rb)', borderRadius: 8, marginBottom: 14, fontSize: 13, color: 'var(--rt)' }}>
-          Flagging creates a new investigation record and notifies your Investigation Officer. The batch will be locked for loyalty accumulation.
-        </div>
-        <FormGroup label="Reason for flagging">
-          <textarea className="inp" rows={3} placeholder="Describe the suspected issue..." style={{ resize: 'vertical' }} />
-        </FormGroup>
-        <div className="twrap" style={{ padding: '8px 0' }}>
-          <div>
-            <div className="tlbl" style={{ fontSize: 12 }}>Notify Investigation Officer</div>
-            <div className="tdesc">Send immediate alert to Emeka Okafor</div>
-          </div>
-          <Toggle defaultOn />
-        </div>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('batch-flag')}>Cancel</Button>
-          <Button variant="danger" onClick={() => { closeModal('batch-flag'); showToast('Batch flagged. Investigation record created and officer notified.'); }}>Flag for Investigation</Button>
-        </ModalFooter>
-      </Modal>
-
-      <AccountRequestModal
+      <ConvertDeploymentModal
         open={isOpen('convert-deployment')}
         onClose={close('convert-deployment')}
-        type="pilot_conversion"
-        title="Convert to Full Deployment"
-        showToast={showToast}
+        onProceed={async () => {
+          try {
+            await authApi.submitRequest({
+              type: 'pilot_conversion',
+              notes: 'Pilot to Full Deployment conversion requested from owner dashboard',
+            });
+            closeModal('convert-deployment');
+            showToast(
+              'Conversion request submitted. Sartor will invoice ₦1,000,000 (after pilot credit) within 1 business day.',
+              'success',
+            );
+          } catch (e) {
+            showToast(e instanceof Error ? e.message : 'Could not submit conversion request.', 'error');
+          }
+        }}
       />
 
-      <AccountRequestModal
-        open={isOpen('domain-upgrade')}
-        onClose={close('domain-upgrade')}
-        type="domain_upgrade"
-        title="Request Domain Upgrade"
-        showToast={showToast}
+      <DomainUpgradeModal open={isOpen('domain-upgrade')} onClose={close('domain-upgrade')} />
+
+      <PlaceStickerOrderModal open={isOpen('place-sticker-order')} onClose={close('place-sticker-order')} />
+
+      <ActivateStickerBatchModal
+        open={isOpen('activate-sticker-batch')}
+        order={getPayload<ActivateStickerBatchPayload>('activate-sticker-batch')}
+        onClose={close('activate-sticker-batch')}
       />
+
+      <PaymentGatewayModal
+        open={isOpen('payment-gateway')}
+        payload={getPayload<PaymentGatewayPayload>('payment-gateway')}
+        onClose={close('payment-gateway')}
+      />
+
+      <InvoiceViewModal
+        open={isOpen('invoice-view')}
+        invoice={getPayload<InvoiceViewPayload>('invoice-view')}
+        onClose={close('invoice-view')}
+      />
+
+      <AddSkuLicencesModal open={isOpen('add-sku-licences')} onClose={close('add-sku-licences')} />
 
       <CampaignWizardModal
         open={isOpen('create-campaign')}
@@ -278,143 +206,71 @@ export function ModalsRoot() {
         }}
       />
 
-      <Modal open={isOpen('pause-warn')} onClose={close('pause-warn')} title="Pause Campaign?" width={440}>
-        <div style={{ padding: 12, background: 'var(--ab)', borderRadius: 8, marginBottom: 14 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--at)', marginBottom: 6 }}>⚠ Auth counts will freeze</div>
-          <div style={{ fontSize: 13, color: 'var(--at)' }}>
-            Consumers will not accumulate progress toward milestones during the pause period.
-          </div>
-        </div>
-        <p style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 16 }}>
-          Pause <strong>Welcome & Loyalty — Default</strong>?
-        </p>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('pause-warn')}>Cancel</Button>
-          <Button variant="amber" onClick={() => { closeModal('pause-warn'); showToast('Campaign paused. Auth counts frozen.'); }}>Pause Campaign</Button>
-        </ModalFooter>
-      </Modal>
-
-      <Modal open={isOpen('end-warn')} onClose={close('end-warn')} title="End Campaign?" width={440}>
-        <div style={{ padding: 12, background: 'var(--rb)', borderRadius: 8, marginBottom: 14 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--rt)', marginBottom: 6 }}>⚠ This action is permanent</div>
-          <div style={{ fontSize: 13, color: 'var(--rt)' }}>
-            All remaining PENDING_STOCK events (25 consumers) will be automatically VOIDED.
-          </div>
-        </div>
-        <FormGroup label="Type END to confirm">
-          <input className="inp" placeholder="Type END to confirm" />
-        </FormGroup>
-        <ModalFooter>
-          <Button variant="secondary" onClick={close('end-warn')}>Cancel</Button>
-          <Button variant="danger" onClick={() => { closeModal('end-warn'); showToast('Campaign ended. PENDING_STOCK events voided.'); }}>End Campaign Permanently</Button>
-        </ModalFooter>
-      </Modal>
+      <CampaignPauseModal
+        onPauseSuccess={() => showToast('Campaign paused. Auth counts frozen.', 'success')}
+      />
+      <CampaignEndModal onEndSuccess={() => showToast('Campaign ended. PENDING_STOCK events voided.', 'success')} />
 
     </>
   );
 }
 
-function AccountRequestModal({
+function ConvertDeploymentModal({
   open,
   onClose,
-  type,
-  title,
-  showToast,
+  onProceed,
 }: {
   open: boolean;
   onClose: () => void;
-  type: 'domain_upgrade' | 'pilot_conversion';
-  title: string;
-  showToast: (msg: string, type?: 'success' | 'error' | 'warn') => void;
+  onProceed: () => void;
 }) {
-  const [domainTier, setDomainTier] = useState<'growth' | 'enterprise'>('growth');
-  const [preferredDomain, setPreferredDomain] = useState('');
-  const [notes, setNotes] = useState('');
-  const [saving, setSaving] = useState(false);
-
-  const reset = () => {
-    setDomainTier('growth');
-    setPreferredDomain('');
-    setNotes('');
-  };
-
-  const handleClose = () => {
-    reset();
-    onClose();
-  };
-
-  const handleSubmit = async () => {
-    setSaving(true);
-    try {
-      await authApi.submitRequest({
-        type,
-        domainTier: type === 'domain_upgrade' ? domainTier : undefined,
-        preferredDomain: preferredDomain.trim() || undefined,
-        notes: notes.trim() || undefined,
-      });
-      handleClose();
-      showToast(
-        type === 'domain_upgrade'
-          ? 'Domain upgrade request submitted. Your account manager will be in touch within 2 business days.'
-          : 'Conversion request submitted. Your account manager will contact you within 2 business days.',
-        'success',
-      );
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Could not submit request.', 'error');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   return (
-    <Modal open={open} onClose={handleClose} title={title} width={type === 'domain_upgrade' ? 440 : 460}>
-      {type === 'pilot_conversion' ? (
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
-          Your pilot fee of <CurrencyAmount nairaAmount={3500000} /> is credited in full against the ₦4,500,000 onboarding fee — effective cost <CurrencyAmount nairaAmount={1000000} />.
+    <Modal open={open} onClose={onClose} title="Convert to Full Deployment" width={460}>
+      <div style={{ padding: 12, background: 'var(--gb)', borderRadius: 8, marginBottom: 14, fontSize: 12, color: 'var(--gt)' }}>
+        <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 6 }}>✓ Your data and progress carry forward in full</div>
+        All DORA models, consumer scan history, loyalty points, and gift campaigns created during your pilot will remain
+        active under Full Deployment. Nothing is lost.
+      </div>
+      <div style={{ display: 'grid', gap: 8, marginBottom: 14, fontSize: 12 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: 9, background: 'var(--bg)', borderRadius: 6 }}>
+          <span>Pilot fee paid (credit)</span>
+          <strong>
+            <CurrencyAmount nairaAmount={3500000} />
+          </strong>
         </div>
-      ) : (
-        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 14 }}>
-          Domain upgrades are provisioned by Sartor. Your account manager will contact you within 2 business days.
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: 9, background: 'var(--bg)', borderRadius: 6 }}>
+          <span>Onboarding fee</span>
+          <strong>
+            <CurrencyAmount nairaAmount={4500000} />
+          </strong>
         </div>
-      )}
-      {type === 'domain_upgrade' && (
-        <>
-          <FormGroup label="Preferred Domain Type">
-            <select
-              className="inp"
-              value={domainTier}
-              onChange={(e) => setDomainTier(e.target.value as 'growth' | 'enterprise')}
-            >
-              <option value="growth">Growth Subdomain (verify-{'{code}'}.sartor.ng) — ₦100,000 one-time</option>
-              <option value="enterprise">Enterprise CNAME (your own domain) — ₦150,000 setup + ₦200,000/yr</option>
-            </select>
-          </FormGroup>
-          <FormGroup label="Preferred Subdomain / Domain Name">
-            <input
-              className="inp"
-              placeholder="e.g. verify-health or verify.yourdomain.com"
-              value={preferredDomain}
-              onChange={(e) => setPreferredDomain(e.target.value)}
-            />
-          </FormGroup>
-        </>
-      )}
-      <FormGroup label={type === 'pilot_conversion' ? 'Notes for account manager (optional)' : 'Additional Notes'}>
-        <textarea
-          className="inp"
-          rows={2}
-          placeholder="Any questions or requirements..."
-          style={{ resize: 'vertical' }}
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-        />
-      </FormGroup>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            padding: 9,
+            background: 'var(--gb)',
+            borderRadius: 6,
+            fontWeight: 700,
+            color: 'var(--gt)',
+          }}
+        >
+          <span>Effective cost to convert</span>
+          <strong>
+            <CurrencyAmount nairaAmount={1000000} />
+          </strong>
+        </div>
+      </div>
+      <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 16 }}>
+        By confirming, you authorise Sartor Limited to invoice your organisation for ₦1,000,000 and transition your
+        account to Full Deployment within 1 business day.
+      </div>
       <ModalFooter>
-        <Button variant="secondary" onClick={handleClose} disabled={saving}>
-          Cancel
+        <Button variant="secondary" onClick={onClose}>
+          Not yet
         </Button>
-        <Button onClick={handleSubmit} disabled={saving}>
-          {saving ? 'Submitting…' : type === 'domain_upgrade' ? 'Submit Request' : 'Request Conversion'}
+        <Button style={{ background: '#D64000' }} onClick={onProceed}>
+          Proceed to Payment →
         </Button>
       </ModalFooter>
     </Modal>
@@ -459,61 +315,6 @@ function CurrencyModal({
           </button>
         ))}
       </div>
-    </Modal>
-  );
-}
-
-function ReportsModal({
-  open,
-  onClose,
-  showToast,
-}: {
-  open: boolean;
-  onClose: () => void;
-  showToast: (msg: string) => void;
-}) {
-  return (
-    <Modal open={open} onClose={onClose} title="Generate Report" width={480}>
-      <FormGroup label="Report Type *">
-        <select className="inp">
-          <option value="">Select report type...</option>
-          <option value="auth">Authentication Summary — scan volume, auth rate, outcomes</option>
-          <option value="batch">Batch Performance — per-batch scan rates, delivery, DORA status</option>
-          <option value="fraud">Fraud & Investigation Report</option>
-          <option value="loyalty">Loyalty & Redemptions Report</option>
-          <option value="credits">Credit Usage Report</option>
-          <option value="geo">Geographic Distribution Report</option>
-        </select>
-      </FormGroup>
-      <div className="fr2">
-        <FormGroup label="Date From *">
-          <input type="date" className="inp" />
-        </FormGroup>
-        <FormGroup label="Date To *">
-          <input type="date" className="inp" />
-        </FormGroup>
-      </div>
-      <FormGroup label="Product Filter">
-        <select className="inp">
-          <option>All Products</option>
-          <option>Sartor Hand Sanitiser 500ml (SHS-001)</option>
-          <option>Carabiner Holder Pack (CHP-002)</option>
-        </select>
-      </FormGroup>
-      <FormGroup label="Format">
-        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', border: '2px solid var(--navy)', borderRadius: 7, background: 'var(--bb)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--bt)' }}>
-            <input type="radio" name="mfmt" defaultChecked style={{ margin: 0 }} /> CSV
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 7, cursor: 'pointer', fontSize: 12 }}>
-            <input type="radio" name="mfmt" style={{ margin: 0 }} /> PDF
-          </label>
-        </div>
-      </FormGroup>
-      <ModalFooter>
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { onClose(); showToast('Report generated and downloading now.'); }}>Generate & Download</Button>
-      </ModalFooter>
     </Modal>
   );
 }

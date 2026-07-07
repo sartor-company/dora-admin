@@ -641,6 +641,78 @@ tr.cl {
   border: 1px solid rgba(29, 184, 122, 0.2);
 }
 
+.bghost {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.bghost:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.bacc {
+  background: var(--green);
+  color: #fff;
+}
+
+.bacc:hover {
+  background: #17a06a;
+}
+
+.ba {
+  background: var(--ab);
+  color: var(--at);
+  border: 1px solid rgba(217, 119, 6, 0.25);
+}
+
+.inp-sm {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+.credit-summary-bar {
+  background: var(--navy);
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.credit-summary-bar .credit-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.credit-summary-bar .credit-divider {
+  width: 1px;
+  background: rgba(255, 255, 255, 0.12);
+  align-self: stretch;
+}
+
+.credit-summary-bar .credit-lbl {
+  font-size: 9px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 4px;
+}
+
+.credit-summary-bar .credit-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.credit-summary-bar .credit-sub {
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-top: 2px;
+}
+
 .back {
   display: inline-flex;
   align-items: center;

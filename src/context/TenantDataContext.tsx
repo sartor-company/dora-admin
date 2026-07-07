@@ -19,6 +19,9 @@ import { useAuthStore } from '../store/authStore';
 import { analyticsApi } from '../api/analytics';
 import { giftsApi } from '../api/gifts';
 import { investigationsApi, type InvestigationRow, type InvestigationStats } from '../api/investigations';
+import { stickersApi, type StickerOrderSummary } from '../api/stickers';
+import type { StickerOrderRow } from '../data/stickerOrders';
+import { mapStickerOrder } from '../utils/stickerMappers';
 import type { AnalyticsOverview } from '../types/analytics';
 import type { CampaignListItem, CampaignSummary } from '../types/gifts';
 import type { ApiBatch, ApiNotification, ApiProduct, ApiTeamMember } from '../types/api';
@@ -44,7 +47,14 @@ interface TenantDataContextValue {
   campaignSummary: CampaignSummary | null;
   investigations: InvestigationRow[];
   investigationStats: InvestigationStats | null;
-  navBadges: { fraud?: number; investigations?: number; notifications?: number };
+  stickerOrders: StickerOrderRow[];
+  stickerSummary: StickerOrderSummary | null;
+  navBadges: {
+    actions?: number;
+    fraud?: number;
+    investigations?: number;
+    notifications?: number;
+  };
   loading: boolean;
   doraUploadTarget: DoraUploadTarget | null;
   setDoraUploadTarget: (target: DoraUploadTarget | null) => void;
@@ -56,6 +66,7 @@ interface TenantDataContextValue {
   refreshAnalytics: () => Promise<void>;
   refreshCampaigns: () => Promise<void>;
   refreshInvestigations: () => Promise<void>;
+  refreshStickerOrders: () => Promise<void>;
   refreshAll: () => Promise<void>;
   refreshAccount: () => Promise<void>;
   giftModalNonce: number;
@@ -77,6 +88,8 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
   const [campaignSummary, setCampaignSummary] = useState<CampaignSummary | null>(null);
   const [investigations, setInvestigations] = useState<InvestigationRow[]>([]);
   const [investigationStats, setInvestigationStats] = useState<InvestigationStats | null>(null);
+  const [stickerOrders, setStickerOrders] = useState<StickerOrderRow[]>([]);
+  const [stickerSummary, setStickerSummary] = useState<StickerOrderSummary | null>(null);
   const [loading, setLoading] = useState(false);
   const [doraUploadTarget, setDoraUploadTarget] = useState<DoraUploadTarget | null>(null);
   const [giftModalNonce, setGiftModalNonce] = useState(0);
@@ -128,6 +141,12 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
     else setInvestigationStats(await investigationsApi.stats());
   }, []);
 
+  const refreshStickerOrders = useCallback(async () => {
+    const { data, summary } = await stickersApi.list();
+    setStickerOrders(data.map(mapStickerOrder));
+    setStickerSummary(summary);
+  }, []);
+
   const refreshAccount = useCallback(async () => {
     const profile = await authApi.getAccount();
     const token = useAuthStore.getState().token;
@@ -168,6 +187,8 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       setCampaignSummary(null);
       setInvestigations([]);
       setInvestigationStats(null);
+      setStickerOrders([]);
+      setStickerSummary(null);
     }
   }, [token, refreshAll]);
 
@@ -188,7 +209,9 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
     const unread = notifications.filter((n) => !n.status).length;
     const fraud = analytics?.kpis.fraudAlerts ?? 0;
     const invQueue = investigationStats?.queue ?? 0;
+    const actions = analytics?.actionsRequired?.length ?? 0;
     return {
+      actions: actions > 0 ? actions : undefined,
       fraud: fraud > 0 ? fraud : undefined,
       investigations: invQueue > 0 ? invQueue : undefined,
       notifications: unread > 0 ? unread : undefined,
@@ -209,6 +232,8 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       campaignSummary,
       investigations,
       investigationStats,
+      stickerOrders,
+      stickerSummary,
       navBadges,
       loading,
       doraUploadTarget,
@@ -221,6 +246,7 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       refreshAnalytics,
       refreshCampaigns,
       refreshInvestigations,
+      refreshStickerOrders,
       refreshAll,
       refreshAccount,
       giftModalNonce,
@@ -239,6 +265,8 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       campaignSummary,
       investigations,
       investigationStats,
+      stickerOrders,
+      stickerSummary,
       navBadges,
       loading,
       doraUploadTarget,
@@ -250,6 +278,7 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
       refreshAnalytics,
       refreshCampaigns,
       refreshInvestigations,
+      refreshStickerOrders,
       refreshAll,
       refreshAccount,
       giftModalNonce,

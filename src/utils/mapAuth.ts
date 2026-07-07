@@ -54,6 +54,10 @@ export function mapLoginToProfile(data: Record<string, unknown>): TenantProfile 
       ...((data.notificationPrefs as Partial<NotificationPrefs>) || {}),
     },
     platformStatus: data.platformStatus as string | undefined,
+    pilotDaysRemaining: data.pilotDaysRemaining as number | undefined,
+    pilotDaysTotal: data.pilotDaysTotal as number | undefined,
+    skuCount: data.skuCount as number | undefined,
+    skuRenewalLabel: data.skuRenewalLabel as string | undefined,
   };
 }
 

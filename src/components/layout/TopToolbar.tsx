@@ -55,6 +55,9 @@ export function TopToolbar() {
             <span>Sartor CRM</span>
           </a>
         )}
+        <a href="https://verify.dorascan.ai" target="_blank" rel="noreferrer" className="cbtn dora-link">
+          <span>DORA</span>
+        </a>
         <button type="button" className="cbtn" onClick={() => openModal('currency')}>
           <span>{CURRENCIES[currency].label}</span>
         </button>

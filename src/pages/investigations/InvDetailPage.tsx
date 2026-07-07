@@ -7,6 +7,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { InfoCell, InfoGrid } from '../../components/ui/InfoGrid';
 import { useApp } from '../../context/AppContext';
+import { useModal } from '../../context/ModalContext';
 import { useTenantData } from '../../context/TenantDataContext';
 import { useToast } from '../../context/ToastContext';
 import type { InvestigationRow } from '../../api/investigations';
@@ -14,6 +15,7 @@ import type { BadgeVariant } from '../../types';
 
 export function InvDetailPage() {
   const { navigateLegacy } = useApp();
+  const { openModal } = useModal();
   const { refreshInvestigations } = useTenantData();
   const { showToast } = useToast();
   const [params] = useSearchParams();
@@ -98,6 +100,28 @@ export function InvDetailPage() {
           <InfoCell label="Status" value={inv.status} />
         </InfoGrid>
       </Card>
+
+      {inv.status !== 'Closed' && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
+          <Button
+            variant="success"
+            size="sm"
+            onClick={() =>
+              openModal('clear-fp', { investigationId: inv._id || inv.id, displayId: inv.id })
+            }
+          >
+            ✓ Clear False Positive
+          </Button>
+          <Button
+            size="sm"
+            onClick={() =>
+              openModal('evidence-bundle', { investigationId: inv._id || inv.id, displayId: inv.id })
+            }
+          >
+            ↗ Generate Evidence Bundle
+          </Button>
+        </div>
+      )}
 
       <Card>
         <div className="ct" style={{ marginBottom: 12 }}>

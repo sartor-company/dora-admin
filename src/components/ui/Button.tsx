@@ -1,6 +1,6 @@
 import type { ButtonHTMLAttributes } from 'react';
 
-type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'amber';
+type ButtonVariant = 'primary' | 'secondary' | 'danger' | 'success' | 'amber' | 'ghost' | 'accent';
 type ButtonSize = 'md' | 'sm';
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -14,6 +14,8 @@ const variantClass: Record<ButtonVariant, string> = {
   danger: 'bdng',
   success: 'bsuc',
   amber: 'ba',
+  ghost: 'bghost',
+  accent: 'bacc',
 };
 
 export function Button({

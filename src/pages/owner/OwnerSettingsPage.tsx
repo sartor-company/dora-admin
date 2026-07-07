@@ -18,6 +18,7 @@ import { billingApi } from '../../api/billing';
 import { authApi } from '../../api/auth';
 import { useAuthStore, DEFAULT_NOTIFICATION_PREFS, type NotificationPrefs } from '../../store/authStore';
 import { formatApiDate, invoiceStatusVariant } from '../../utils/mappers';
+import { skuBand } from '../../utils/skuBands';
 import { teamMemberRoleLabel } from '../../utils/consoleRoles';
 import { mapAccountToProfile } from '../../utils/mapAuth';
 import { useTabs } from '../../hooks/useTabs';
@@ -42,7 +43,7 @@ const NOTIFICATION_ITEMS: { key: keyof NotificationPrefs; label: string; desc: s
 ];
 
 export function OwnerSettingsPage() {
-  const { clientType, companyName, currency, setCurrency, verifyDomain, scBand, smsCredits, pinCredits } = useApp();
+  const { clientType, companyName, currency, setCurrency, verifyDomain, smsCredits, pinCredits, batchCalCredits } = useApp();
   const user = useAuthStore((s) => s.user);
   const updateProfile = useAuthStore((s) => s.updateProfile);
   const { team, products, invoices, refreshInvoices, refreshAccount } = useTenantData();
@@ -213,17 +214,49 @@ export function OwnerSettingsPage() {
             </div>
           </FormGroup>
           <FormGroup label="Platform Engagement">
-            <div style={{ padding: '11px 13px', background: 'var(--gb)', borderRadius: 8, fontSize: 12 }}>
-              <div style={{ fontWeight: 700, color: 'var(--gt)', marginBottom: 4 }}>
-                {clientType === 'pilot' ? 'Pilot Programme' : 'Full Deployment'} — {scBand} Band
-              </div>
-              <div style={{ color: 'var(--gt)', marginBottom: 6 }}>
-                {user?.clientCode ? `Client code: ${user.clientCode}` : 'Client account active'}
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--gt)' }}>
-                Verification domain: {verifyDomain}
-              </div>
-            </div>
+            {(() => {
+              const skuCount = products.length;
+              const band = skuBand(skuCount);
+              const rateLabel = band.rate != null ? `₦${band.rate.toLocaleString()}/SKU/yr` : 'Custom pricing';
+              return (
+                <div style={{ padding: '11px 13px', background: 'var(--gb)', borderRadius: 8, fontSize: 12 }}>
+                  <div style={{ fontWeight: 700, color: 'var(--gt)', marginBottom: 4 }}>
+                    {clientType === 'pilot'
+                      ? `Pilot Programme — ${band.name}`
+                      : `Full Deployment — ${band.name} (${rateLabel})`}
+                  </div>
+                  <div style={{ color: 'var(--gt)', marginBottom: 6 }}>
+                    {clientType === 'pilot' ? (
+                      <>
+                        90-day trial · Full platform access · Pilot fee credited on conversion to Full Deployment
+                      </>
+                    ) : (
+                      <>
+                        Active since{' '}
+                        {(() => {
+                          const times = products
+                            .map((p) => p.creationDateTime)
+                            .filter((t): t is number => typeof t === 'number');
+                          return times.length > 0 ? formatApiDate(Math.min(...times)) : 'Jan 1, 2026';
+                        })()}{' '}
+                        · {skuCount} SKU
+                        {skuCount !== 1 ? 's' : ''} registered · Annual licence renewal:{' '}
+                        {user?.skuRenewalLabel || 'Jan 2027'}
+                      </>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--gt)' }}>
+                    Verification domain: {verifyDomain}
+                    {clientType === 'pilot' ? ' (default)' : ' (default for all accounts)'}
+                  </div>
+                  {clientType !== 'pilot' && (
+                    <Button variant="secondary" size="sm" style={{ marginTop: 8 }} onClick={() => openModal('add-sku-licences')}>
+                      + Add SKU Licences
+                    </Button>
+                  )}
+                </div>
+              );
+            })()}
           </FormGroup>
           <FormGroup label="Verification Domain">
             <div style={{ border: '1px solid var(--border)', borderRadius: 9, overflow: 'hidden' }}>
@@ -238,10 +271,10 @@ export function OwnerSettingsPage() {
               >
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gt)' }}>
-                    ✓ Starter — verify.sartor.com
+                    ✓ Starter — verify.dorascan.ai
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--gt)', marginTop: 2 }}>
-                    Sartor default domain · Active · Included at no charge
+                    DORASCAN default domain · Active · Included at no charge
                   </div>
                 </div>
                 <Badge variant="bg">Active</Badge>
@@ -257,10 +290,10 @@ export function OwnerSettingsPage() {
               >
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 600 }}>
-                    Growth Subdomain — verify-{'{code}'}.sartor.ng
+                    Growth Subdomain — verify-{'{name}'}.dorascan.ai
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
-                    Sartor-managed subdomain with your brand theme · ₦100,000 one-time setup
+                    Brand-themed verification hostname · ₦100,000 setup + ₦50,000/yr
                   </div>
                 </div>
                 <Button variant="secondary" size="sm" style={{ flexShrink: 0, marginLeft: 12 }} onClick={() => openModal('domain-upgrade')}>
@@ -457,6 +490,7 @@ export function OwnerSettingsPage() {
             {[
               { title: 'PIN Authentication Credits', purchased: pinCredits, used: 0, remaining: pinCredits, pct: pinCredits > 0 ? 100 : 0, note: 'Balance from your Sartor account.' },
               { title: 'SMS Notification Credits', purchased: smsCredits, used: 0, remaining: smsCredits, pct: smsCredits > 0 ? 100 : 0, color: 'var(--amber)', remainingColor: smsCredits < 1000 ? 'var(--at)' : 'var(--gt)', note: 'Balance from your Sartor account.' },
+              { title: 'Batch Calibration Credits', purchased: batchCalCredits, used: 0, remaining: batchCalCredits, pct: batchCalCredits > 0 ? 100 : 0, note: 'Used when activating new sticker batches.' },
             ].map((c) => (
               <div key={c.title} className="ccard">
                 <div className="ch">
@@ -501,9 +535,9 @@ export function OwnerSettingsPage() {
             <CardHeader
               title="SKU Annual Licences"
               action={
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                  First calibration included · No credit consumed
-                </div>
+                <Button variant="secondary" size="sm" onClick={() => openModal('add-sku-licences')}>
+                  + Add SKU Licences
+                </Button>
               }
             />
             <TableWrap minWidth={560}>
@@ -570,7 +604,33 @@ export function OwnerSettingsPage() {
                 ) : (
                   invoices.map((row) => (
                     <tr key={row._id}>
-                      <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{row.invoiceId}</td>
+                      <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openModal('invoice-view', {
+                              _id: row._id,
+                              invoiceId: row.invoiceId,
+                              description: row.description,
+                              amount: row.amount,
+                              status: row.status,
+                              issuedAt: row.issuedAt,
+                              creationDateTime: row.creationDateTime,
+                            })
+                          }
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            font: 'inherit',
+                            color: 'var(--bt)',
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                          }}
+                        >
+                          {row.invoiceId}
+                        </button>
+                      </td>
                       <td>{formatApiDate(row.issuedAt || row.creationDateTime)}</td>
                       <td>{row.description}</td>
                       <td>
@@ -580,11 +640,30 @@ export function OwnerSettingsPage() {
                         <Badge variant={invoiceStatusVariant(row.status)}>{row.status}</Badge>
                       </td>
                       <td>
-                        {(row.status === 'Pending' || row.status === 'Due Soon' || row.status === 'Overdue') && (
-                          <Button variant="success" size="sm" onClick={() => payInvoice(row._id)}>
-                            Pay
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() =>
+                              openModal('invoice-view', {
+                                _id: row._id,
+                                invoiceId: row.invoiceId,
+                                description: row.description,
+                                amount: row.amount,
+                                status: row.status,
+                                issuedAt: row.issuedAt,
+                                creationDateTime: row.creationDateTime,
+                              })
+                            }
+                          >
+                            View
                           </Button>
-                        )}
+                          {(row.status === 'Pending' || row.status === 'Due Soon' || row.status === 'Overdue') && (
+                            <Button variant="success" size="sm" onClick={() => payInvoice(row._id)}>
+                              Pay
+                            </Button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))

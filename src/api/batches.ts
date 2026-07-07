@@ -1,4 +1,5 @@
 import { apiClient, unwrap } from './client';
+import { filenameFromDisposition, triggerBlobDownload } from '../utils/downloadBlob';
 import type { ApiBatch } from '../types/api';
 
 export const batchesApi = {
@@ -26,6 +27,12 @@ export const batchesApi = {
       expiryDate: number;
       sellingPrice?: number | null;
       supplyPrice?: number | null;
+      manufactureDate?: number | null;
+      snMode?: 'upload' | 'auto';
+      pinFormat?: string;
+      unitsPerCarton?: number;
+      cartonQrEnabled?: boolean;
+      labelConfig?: '2sided' | '1sided' | '6sided';
     }>;
   }) => {
     const res = await apiClient.post('/batch', body);
@@ -38,5 +45,32 @@ export const batchesApi = {
   ) => {
     const res = await apiClient.put(`/batch/edit/${id}`, body);
     return unwrap<ApiBatch>(res);
+  },
+
+  printPackage: async (id: string) => {
+    const res = await apiClient.get(`/batch/${id}/print-package`);
+    return unwrap<{
+      batchId: string;
+      batchNumber: string;
+      productName: string;
+      quantity: number;
+      cartonCount: number;
+      status: string;
+      files: { id: string; title: string; desc: string; formats: string[] }[];
+    }>(res);
+  },
+
+  logDownload: async (id: string, fileId: string, format: string) => {
+    const res = await apiClient.post(`/batch/${id}/download-log`, { fileId, format });
+    return unwrap<{ batchNumber: string; queued: boolean }>(res);
+  },
+
+  downloadFile: async (id: string, fileId: string, format: string) => {
+    const res = await apiClient.get(`/batch/${id}/download/${fileId}`, {
+      params: { format },
+      responseType: 'blob',
+    });
+    const filename = filenameFromDisposition(res.headers['content-disposition'], `${fileId}.${format.toLowerCase()}`);
+    triggerBlobDownload(res.data, filename);
   },
 };

@@ -12,4 +12,9 @@ export const notificationsApi = {
     const res = await apiClient.put(`/notification/read/${id}`);
     return unwrap(res);
   },
+
+  markAllRead: async () => {
+    const res = await apiClient.put('/notifications/read-all');
+    return unwrap<{ modifiedCount: number }>(res);
+  },
 };

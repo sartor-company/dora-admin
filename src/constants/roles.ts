@@ -16,7 +16,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         title: 'Overview',
         items: [
           { label: 'Dashboard', icon: 'grid', path: '/owner/dashboard' },
-          { label: 'Notifications', icon: 'alert', path: '/notifications' },
+          { label: 'Actions Required', icon: 'alert', path: '/owner/dashboard', badgeKey: 'actions' },
         ],
       },
       {
@@ -24,12 +24,14 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         items: [
           { label: 'Products', icon: 'box', path: '/products' },
           { label: 'Batches', icon: 'layers', path: '/batches' },
+          { label: 'Sticker Orders', icon: 'layers', path: '/sticker-orders' },
         ],
       },
       {
         title: 'Gift Engine',
         items: [
           { label: 'Campaigns', icon: 'gift', path: '/gifts' },
+          { label: 'Redemptions', icon: 'check', path: '/gifts/detail' },
           { label: 'Analytics', icon: 'chart2', path: '/gifts/analytics' },
         ],
       },
@@ -38,15 +40,14 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         items: [
           { label: 'Brand Dashboard', icon: 'chart', path: '/brand/dashboard' },
           { label: 'Consumer Loyalty', icon: 'gift', path: '/brand/loyalty' },
-          { label: 'Fraud Alerts', icon: 'alert', path: '/brand/fraud' },
+          { label: 'Fraud Alerts', icon: 'alert', path: '/brand/fraud', badgeKey: 'fraud' },
           { label: 'Reports', icon: 'chart2', path: '/reports' },
         ],
       },
       {
         title: 'Investigations',
         items: [
-          { label: 'Investigation Queue', icon: 'search', path: '/investigations/queue' },
-          { label: 'Closed Cases', icon: 'check', path: '/investigations/closed' },
+          { label: 'Investigation Queue', icon: 'search', path: '/investigations/queue', badgeKey: 'investigations' },
         ],
       },
       {
@@ -70,7 +71,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         title: 'Overview',
         items: [
           { label: 'Dashboard', icon: 'grid', path: '/batch/dashboard' },
-          { label: 'Alerts', icon: 'alert', path: '/batch/dashboard' },
+          { label: 'Alerts', icon: 'alert', path: '/batch/dashboard', badgeKey: 'actions' },
         ],
       },
       {
@@ -78,6 +79,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         items: [
           { label: 'Products', icon: 'box', path: '/products' },
           { label: 'Batches', icon: 'layers', path: '/batches' },
+          { label: 'Sticker Orders', icon: 'layers', path: '/sticker-orders' },
         ],
       },
       {
@@ -110,10 +112,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       },
       {
         title: 'Gift Engine',
-        items: [
-          { label: 'Campaigns', icon: 'gift', path: '/gifts' },
-          { label: 'Redemptions', icon: 'check', path: '/gifts/detail' },
-        ],
+        items: [{ label: 'Campaigns', icon: 'gift', path: '/gifts' }],
       },
       {
         title: 'Analytics',
@@ -121,7 +120,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
           { label: 'Products', icon: 'box', path: '/products' },
           { label: 'Geographic Heat Map', icon: 'map', path: '/brand/geo' },
           { label: 'Consumer Loyalty', icon: 'gift', path: '/brand/loyalty' },
-          { label: 'Fraud Alerts', icon: 'alert', path: '/brand/fraud' },
+          { label: 'Fraud Alerts', icon: 'alert', path: '/brand/fraud', badgeKey: 'fraud' },
           { label: 'Reports', icon: 'chart2', path: '/reports' },
         ],
       },
@@ -149,8 +148,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       {
         title: 'Investigations',
         items: [
-          { label: 'Investigation Queue', icon: 'search', path: '/investigations/queue' },
-          { label: 'Closed Cases', icon: 'check', path: '/investigations/closed' },
+          { label: 'Investigation Queue', icon: 'search', path: '/investigations/queue', badgeKey: 'investigations' },
           { label: 'Fraud Patterns', icon: 'alert', path: '/investigations/dashboard' },
         ],
       },

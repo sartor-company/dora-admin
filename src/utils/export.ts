@@ -38,7 +38,7 @@ export function downloadPdfReport(opts: PdfReportOptions) {
   doc.rect(0, 0, pageW, 56, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(16);
-  doc.text('SartorChain', 40, 28);
+  doc.text('Sartor-Chain · DORASCAN', 40, 28);
   doc.setFontSize(10);
   doc.setTextColor(...GOLD);
   doc.text('Client Admin Report', 40, 44);

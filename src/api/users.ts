@@ -31,4 +31,21 @@ export const usersApi = {
     const res = await apiClient.patch(`/user/team/${id}`, body);
     return unwrap<ApiTeamMember>(res);
   },
+
+  getProfile: async () => {
+    const res = await apiClient.get('/user/details');
+    return unwrap<ApiTeamMember & { notificationPrefs?: Record<string, boolean> }>(res);
+  },
+
+  updateProfile: async (
+    id: string,
+    body: {
+      fullName?: string;
+      phone?: string;
+      notificationPrefs?: Record<string, boolean>;
+    },
+  ) => {
+    const res = await apiClient.put('/user/edit', { id, ...body });
+    return unwrap<ApiTeamMember & { notificationPrefs?: Record<string, boolean> }>(res);
+  },
 };

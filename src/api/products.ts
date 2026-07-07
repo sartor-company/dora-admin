@@ -18,6 +18,11 @@ export const productsApi = {
     manufacturer?: string;
     barcodeNumber?: string;
     description?: string;
+    productCategory?: string;
+    doraCategory?: string;
+    sizeVolume?: string;
+    skuLabelName?: string;
+    labelConfig?: '2sided' | '1sided' | '6sided';
   }) => {
     const res = await apiClient.post('/product', body);
     return unwrap<ApiProduct>(res);
@@ -31,6 +36,11 @@ export const productsApi = {
       barcodeNumber?: string;
       description?: string;
       status?: string;
+      productCategory?: string;
+      doraCategory?: string;
+      sizeVolume?: string;
+      skuLabelName?: string;
+      labelConfig?: '2sided' | '1sided' | '6sided';
     },
   ) => {
     const res = await apiClient.put(`/product/edit/${id}`, body);

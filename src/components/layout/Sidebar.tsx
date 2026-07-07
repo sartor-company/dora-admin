@@ -3,18 +3,18 @@ import { NavLink } from 'react-router-dom';
 import { ROLES } from '../../constants/roles';
 import { useApp } from '../../context/AppContext';
 import { useTenantData } from '../../context/TenantDataContext';
+import { companyInitials } from '../../constants/dorascan';
 import { NavIcon } from '../icons/NavIcon';
+import type { NavItem } from '../../types';
 
 export function Sidebar() {
   const { role, sidebarOpen, closeSidebar, companyName, crmEnabled } = useApp();
   const { navBadges } = useTenantData();
   const config = ROLES[role];
 
-  const badgeFor = (path: string): number | undefined => {
-    if (path.includes('/brand/fraud')) return navBadges.fraud;
-    if (path.includes('/investigations')) return navBadges.investigations;
-    if (path.includes('/notifications')) return navBadges.notifications;
-    return undefined;
+  const badgeFor = (badgeKey?: NavItem['badgeKey']): number | undefined => {
+    if (!badgeKey) return undefined;
+    return navBadges[badgeKey];
   };
 
   useEffect(() => {
@@ -33,9 +33,11 @@ export function Sidebar() {
       />
       <nav id="sidebar" className={sidebarOpen ? 'mob-open' : ''}>
         <div className="slogo">
-          <img className="smark brand-logo" src="/sartor-logo.jpg" alt="Sartor Health logo" width={32} height={32} />
+          <div className="smark initials-mark" aria-hidden>
+            {companyInitials(companyName)}
+          </div>
           <div>
-            <div className="sname">Sartor Health</div>
+            <div className="sname">{companyName}</div>
             <div className="srole">{config.label}</div>
           </div>
         </div>
@@ -44,7 +46,7 @@ export function Sidebar() {
             <div className="nsec" key={section.title}>
               <div className="nlbl">{section.title}</div>
               {section.items.map((item) => {
-                const count = badgeFor(item.path);
+                const count = badgeFor(item.badgeKey);
                 return (
                 <NavLink
                   key={`${item.path}-${item.label}`}

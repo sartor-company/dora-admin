@@ -28,6 +28,7 @@ import { OwnerSettingsPage } from '../pages/owner/OwnerSettingsPage';
 import { ProductDetailPage } from '../pages/products/ProductDetailPage';
 import { ProductsPage } from '../pages/products/ProductsPage';
 import { ReportsPage } from '../pages/ReportsPage';
+import { StickerOrdersPage } from '../pages/stickers/StickerOrdersPage';
 
 export function AppRoutes() {
   return (
@@ -50,6 +51,7 @@ export function AppRoutes() {
           <Route path="products/detail" element={<ProductDetailPage />} />
           <Route path="batches" element={<BatchListPage />} />
           <Route path="batches/detail" element={<BatchDetailPage />} />
+          <Route path="sticker-orders" element={<StickerOrdersPage />} />
           <Route path="batch/dashboard" element={<BatchDashboardPage />} />
           <Route path="batch/settings" element={<BatchSettingsPage />} />
           <Route path="brand/dashboard" element={<BrandDashboardPage />} />

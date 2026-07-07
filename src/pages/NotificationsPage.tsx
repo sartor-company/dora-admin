@@ -23,7 +23,7 @@ export function NotificationsPage() {
       return;
     }
     try {
-      await Promise.all(unread.map((n) => notificationsApi.markRead(n._id)));
+      await notificationsApi.markAllRead();
       await refreshNotifications();
       showToast('All notifications marked as read.', 'success');
     } catch {

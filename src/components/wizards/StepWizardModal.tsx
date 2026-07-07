@@ -13,7 +13,7 @@ interface StepWizardModalProps {
   onClose: () => void;
   steps: StepDef[];
   finishLabel?: string;
-  onFinish: () => void;
+  onFinish: () => void | Promise<void>;
   width?: number;
   extraFooter?: ReactNode;
 }
@@ -36,10 +36,14 @@ export function StepWizardModal({
     onClose();
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (isLast) {
-      onFinish();
-      setStep(0);
+      try {
+        await onFinish();
+        setStep(0);
+      } catch {
+        /* keep current step on validation/API errors */
+      }
     } else {
       setStep((s) => s + 1);
     }

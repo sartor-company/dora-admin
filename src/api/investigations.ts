@@ -66,4 +66,19 @@ export const investigationsApi = {
     const res = await apiClient.patch(`/investigations/${id}`, { note });
     return unwrap<InvestigationRow>(res);
   },
+
+  clearFalsePositive: async (id: string, body: { reason: string; notes?: string }) => {
+    const res = await apiClient.post(`/investigations/${id}/clear-fp`, body);
+    return unwrap<InvestigationRow>(res);
+  },
+
+  generateEvidenceBundle: async (id: string, recipient: string) => {
+    const res = await apiClient.post(`/investigations/${id}/evidence-bundle`, { recipient });
+    return unwrap<{
+      bundleId: string;
+      investigationId: string;
+      recipient: string;
+      emailedTo?: string | null;
+    }>(res);
+  },
 };

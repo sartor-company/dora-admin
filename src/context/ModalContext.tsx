@@ -21,6 +21,13 @@ export interface FlagBatchPayload {
   doraScore?: number;
 }
 
+export interface BatchActionPayload {
+  batchId: string;
+  batchNumber: string;
+  productName?: string;
+  quantity?: number;
+}
+
 export interface ReplenishGiftPayload {
   campaignId: string;
   poolId: string;
@@ -41,12 +48,54 @@ export interface ProductModalPayload {
   product: ApiProduct;
 }
 
+export interface ActivateStickerBatchPayload {
+  id: string;
+  ref: string;
+  product: string;
+  planned: number;
+  printed: number;
+}
+
+export interface PaymentGatewayPayload {
+  amount: string;
+  description: string;
+  sub?: string;
+  invoiceDbId?: string;
+}
+
+export interface InvestigationActionPayload {
+  investigationId: string;
+  displayId?: string;
+}
+
+export interface CampaignActionPayload {
+  campaignId: string;
+  campaignName: string;
+  pendingStock?: number;
+}
+
+export interface InvoiceViewPayload {
+  _id: string;
+  invoiceId: string;
+  description: string;
+  amount: number;
+  status: string;
+  issuedAt?: number;
+  creationDateTime?: number;
+}
+
 export type ModalPayload =
   | FlagBatchPayload
+  | BatchActionPayload
   | ReplenishGiftPayload
   | AddGiftPayload
   | ProductModalPayload
-  | EditMemberPayload;
+  | EditMemberPayload
+  | ActivateStickerBatchPayload
+  | PaymentGatewayPayload
+  | InvoiceViewPayload
+  | InvestigationActionPayload
+  | CampaignActionPayload;
 
 interface ModalContextValue {
   openModal: (id: ModalId, payload?: ModalPayload) => void;

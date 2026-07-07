@@ -28,6 +28,7 @@ interface AppContextValue {
   scBand: string;
   smsCredits: number;
   pinCredits: number;
+  batchCalCredits: number;
   logout: () => void;
   navigateTo: (path: string) => void;
   navigateLegacy: (pageId: string) => void;
@@ -106,10 +107,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
       clientName,
       companyName,
       crmEnabled: Boolean(user?.crmEnabled),
-      verifyDomain: user?.verifyDomain || 'verify.sartor.com',
+      verifyDomain: user?.verifyDomain || 'verify.dorascan.ai',
       scBand: user?.scBand || 'Pilot',
       smsCredits: user?.smsCredits ?? 0,
       pinCredits: user?.pinCredits ?? 0,
+      batchCalCredits: user?.batchCalCredits ?? 18,
       logout,
       navigateTo,
       navigateLegacy,

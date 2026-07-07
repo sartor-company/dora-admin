@@ -30,7 +30,7 @@ export function GiftsDetailPage() {
   const [searchParams] = useSearchParams();
   const campaignId = searchParams.get('id') || '';
   const { navigateTo, isReadOnly } = useApp();
-  const { refreshCampaigns, giftModalNonce } = useTenantData();
+  const { giftModalNonce } = useTenantData();
   const { openModal } = useModal();
   const { showToast } = useToast();
   const { active, setActive } = useTabs<GiftDetailTab>('pools');
@@ -39,7 +39,6 @@ export function GiftsDetailPage() {
   const [redemptions, setRedemptions] = useState<GiftRedemption[]>([]);
   const [analytics, setAnalytics] = useState<CampaignAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [endConfirm, setEndConfirm] = useState('');
 
   const load = useCallback(async () => {
     if (!campaignId) return;
@@ -59,6 +58,23 @@ export function GiftsDetailPage() {
       setLoading(false);
     }
   }, [campaignId, showToast]);
+
+  const openPauseModal = () => {
+    if (!campaign) return;
+    openModal('pause-warn', {
+      campaignId: campaign._id,
+      campaignName: campaign.name,
+    });
+  };
+
+  const openEndModal = () => {
+    if (!campaign) return;
+    openModal('end-warn', {
+      campaignId: campaign._id,
+      campaignName: campaign.name,
+      pendingStock: campaign.stats?.pendingStock,
+    });
+  };
 
   useEffect(() => {
     if (!campaignId) {
@@ -85,35 +101,6 @@ export function GiftsDetailPage() {
       })),
     );
   }, [campaign]);
-
-  const handlePause = async () => {
-    if (!campaign) return;
-    try {
-      await giftsApi.pauseCampaign(campaign._id);
-      await refreshCampaigns();
-      await load();
-      showToast('Campaign paused. Auth counts frozen.');
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Failed to pause campaign');
-    }
-  };
-
-  const handleEnd = async () => {
-    if (!campaign) return;
-    if (endConfirm !== 'END') {
-      showToast('Type END to confirm');
-      return;
-    }
-    try {
-      await giftsApi.endCampaign(campaign._id);
-      setEndConfirm('');
-      await refreshCampaigns();
-      await load();
-      showToast('Campaign ended.');
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Failed to end campaign');
-    }
-  };
 
   if (!campaignId) {
     return (
@@ -171,20 +158,13 @@ export function GiftsDetailPage() {
         {canManage && (
           <div className="pghead-actions" style={{ marginBottom: 0, flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
             <div style={{ display: 'flex', gap: 8 }}>
-              <Button variant="secondary" size="sm" onClick={handlePause}>
+              <Button variant="secondary" size="sm" onClick={openPauseModal}>
                 ▮▮ Pause
               </Button>
-              <Button variant="danger" size="sm" onClick={handleEnd}>
+              <Button variant="danger" size="sm" onClick={openEndModal}>
                 ■ End Campaign
               </Button>
             </div>
-            <input
-              className="inp"
-              style={{ maxWidth: 160, fontSize: 12 }}
-              placeholder='Type END to confirm end'
-              value={endConfirm}
-              onChange={(e) => setEndConfirm(e.target.value)}
-            />
           </div>
         )}
       </div>

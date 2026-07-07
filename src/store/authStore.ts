@@ -50,6 +50,10 @@ export interface TenantProfile {
   campaignStacking?: boolean;
   notificationPrefs?: NotificationPrefs;
   platformStatus?: string;
+  pilotDaysRemaining?: number;
+  pilotDaysTotal?: number;
+  skuCount?: number;
+  skuRenewalLabel?: string;
 }
 
 interface AuthState {

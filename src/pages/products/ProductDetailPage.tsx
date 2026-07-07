@@ -14,7 +14,13 @@ import { useTenantData } from '../../context/TenantDataContext';
 import { useModal } from '../../context/ModalContext';
 import { useTabs } from '../../hooks/useTabs';
 import type { ApiProduct } from '../../types/api';
-import { batchDisplayRow, formatApiDate, scanTrendChart } from '../../utils/mappers';
+import { productLicencesApi, type ProductLicence } from '../../api/productLicences';
+import { formatLicenceDate, licenceStatus } from '../../data/productLicences';
+import { useToast } from '../../context/ToastContext';
+import { FormGroup } from '../../components/ui/FormGroup';
+import { batchDisplayRow, scanTrendChart } from '../../utils/mappers';
+
+const LICENCE_AUTHORITIES = ['NAFDAC', 'SON', 'PCN', 'FDA (USA)', 'MHRA (UK)', 'CE Marking (EU)', 'Other'];
 
 type ProductTab = 'batches' | 'dora' | 'analytics' | 'licences';
 
@@ -31,8 +37,17 @@ export function ProductDetailPage() {
   const { isReadOnly, navigateTo, verifyDomain, crmEnabled } = useApp();
   const { setDoraUploadTarget, analytics } = useTenantData();
   const { openModal } = useModal();
+  const { showToast } = useToast();
   const { active, setActive } = useTabs<ProductTab>('batches');
   const [product, setProduct] = useState<ApiProduct | null>(null);
+  const [licences, setLicences] = useState<ProductLicence[]>([]);
+  const [licencesLoading, setLicencesLoading] = useState(false);
+  const [showAddLicence, setShowAddLicence] = useState(false);
+  const [licAuthority, setLicAuthority] = useState('NAFDAC');
+  const [licNumber, setLicNumber] = useState('');
+  const [licMarket, setLicMarket] = useState('Nigeria');
+  const [licValidTo, setLicValidTo] = useState('');
+  const [licSaving, setLicSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -62,6 +77,52 @@ export function ProductDetailPage() {
       cancelled = true;
     };
   }, [productId]);
+
+  useEffect(() => {
+    if (!productId || active !== 'licences') return;
+    let cancelled = false;
+    setLicencesLoading(true);
+    productLicencesApi
+      .list(productId)
+      .then((rows) => {
+        if (!cancelled) setLicences(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setLicences([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLicencesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [productId, active]);
+
+  const addLicence = async () => {
+    if (!productId || !licNumber.trim() || !licValidTo) {
+      showToast('Enter licence number and valid-to date.', 'warn');
+      return;
+    }
+    setLicSaving(true);
+    try {
+      const added = await productLicencesApi.add(productId, {
+        authority: licAuthority,
+        number: licNumber.trim(),
+        market: licMarket.trim() || 'Nigeria',
+        country: licMarket.trim() || 'Nigeria',
+        validTo: new Date(licValidTo).getTime(),
+      });
+      setLicences((prev) => [...prev, added]);
+      setLicNumber('');
+      setLicValidTo('');
+      setShowAddLicence(false);
+      showToast('Licence added.', 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not add licence.', 'error');
+    } finally {
+      setLicSaving(false);
+    }
+  };
 
   const batchRows = useMemo(
     () =>
@@ -330,10 +391,92 @@ export function ProductDetailPage() {
 
       {active === 'licences' && (
         <Card>
-          <div style={{ padding: 20, fontSize: 13, color: 'var(--text3)' }}>
-            Regulatory licences for this product can be added in a future release. Product registered{' '}
-            {formatApiDate(product.creationDateTime)}.
-          </div>
+          <CardHeader
+            title="Regulatory Licences"
+            action={
+              !isReadOnly ? (
+                <Button size="sm" onClick={() => setShowAddLicence((v) => !v)}>
+                  + Add Licence
+                </Button>
+              ) : undefined
+            }
+          />
+          {showAddLicence && !isReadOnly && (
+            <div
+              style={{
+                padding: 12,
+                marginBottom: 12,
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+              }}
+            >
+              <div className="fr2">
+                <FormGroup label="Authority">
+                  <select className="inp" value={licAuthority} onChange={(e) => setLicAuthority(e.target.value)}>
+                    {LICENCE_AUTHORITIES.map((a) => (
+                      <option key={a}>{a}</option>
+                    ))}
+                  </select>
+                </FormGroup>
+                <FormGroup label="Licence Number *">
+                  <input className="inp" value={licNumber} onChange={(e) => setLicNumber(e.target.value)} />
+                </FormGroup>
+              </div>
+              <div className="fr2">
+                <FormGroup label="Market">
+                  <input className="inp" value={licMarket} onChange={(e) => setLicMarket(e.target.value)} />
+                </FormGroup>
+                <FormGroup label="Valid To *">
+                  <input className="inp" type="date" value={licValidTo} onChange={(e) => setLicValidTo(e.target.value)} />
+                </FormGroup>
+              </div>
+              <Button size="sm" onClick={addLicence} disabled={licSaving}>
+                {licSaving ? 'Saving…' : 'Save Licence'}
+              </Button>
+            </div>
+          )}
+          {licencesLoading ? (
+            <div style={{ padding: 20, fontSize: 13, color: 'var(--text3)' }}>Loading licences…</div>
+          ) : licences.length === 0 ? (
+            <div style={{ padding: 20, fontSize: 13, color: 'var(--text3)' }}>
+              No regulatory licences on file for this product yet.
+            </div>
+          ) : (
+            <TableWrap minWidth={640}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Authority</th>
+                    <th>Licence No.</th>
+                    <th>Market</th>
+                    <th>Valid From</th>
+                    <th>Valid To</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {licences.map((lic) => {
+                    const status = licenceStatus(lic.validTo);
+                    return (
+                      <tr key={lic._id}>
+                        <td>{lic.authority}</td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{lic.number}</td>
+                        <td>{lic.market}</td>
+                        <td>{lic.validFrom ? formatLicenceDate(lic.validFrom) : '—'}</td>
+                        <td>{formatLicenceDate(lic.validTo)}</td>
+                        <td>
+                          <Badge variant={status === 'Active' ? 'bg' : status === 'Expiring soon' ? 'ba' : 'br'}>
+                            {status}
+                          </Badge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </TableWrap>
+          )}
         </Card>
       )}
     </>

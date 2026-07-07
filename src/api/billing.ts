@@ -43,4 +43,21 @@ export const billingApi = {
       description: string;
     }>(res);
   },
+
+  requestSkuLicences: async (addCount: number, renewalMonthsRemaining = 7) => {
+    const res = await apiClient.post('/billing/sku-licences', { addCount, renewalMonthsRemaining });
+    return unwrap<{
+      enterprise?: boolean;
+      message?: string;
+      invoiceId?: string;
+      _id?: string;
+      amount?: number;
+      status?: string;
+      description?: string;
+      prorata?: number;
+      annual?: number;
+      newBand?: string;
+      total?: number;
+    }>(res);
+  },
 };

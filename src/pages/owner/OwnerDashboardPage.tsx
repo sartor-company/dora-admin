@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { activityApi, type TeamActivityItem } from '../../api/activity';
 import { LineChartCard } from '../../components/charts/LineChartCard';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -9,16 +11,36 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { useApp } from '../../context/AppContext';
 import { useTenantData } from '../../context/TenantDataContext';
 import { useModal } from '../../context/ModalContext';
+import { useAuthStore } from '../../store/authStore';
 import { formatCount, formatPercent, scanTrendChart } from '../../utils/mappers';
 
+const TEAM_ACTIVITY_FALLBACK: TeamActivityItem[] = [
+  { who: 'Team', role: 'Batch Admin', action: 'No recent activity yet', when: '', alert: false },
+];
+
 export function OwnerDashboardPage() {
-  const { clientType, companyName, navigateTo, smsCredits, pinCredits, scBand } = useApp();
-  const { analytics, batchRows, loading } = useTenantData();
+  const { clientType, companyName, navigateTo, smsCredits, pinCredits } = useApp();
+  const user = useAuthStore((s) => s.user);
+  const { analytics, batchRows, investigationStats, products, loading } = useTenantData();
   const { openModal } = useModal();
+  const [teamActivity, setTeamActivity] = useState<TeamActivityItem[]>(TEAM_ACTIVITY_FALLBACK);
+
+  useEffect(() => {
+    activityApi
+      .recent()
+      .then((rows) => {
+        if (rows.length > 0) setTeamActivity(rows);
+      })
+      .catch(() => setTeamActivity(TEAM_ACTIVITY_FALLBACK));
+  }, []);
 
   const kpis = analytics?.kpis;
   const chart = scanTrendChart(analytics?.scanTrend ?? []);
   const actions = analytics?.actionsRequired ?? [];
+  const openInvestigations = investigationStats?.queue ?? kpis?.fraudAlerts ?? 0;
+  const skuCount = user?.skuCount ?? products.length;
+  const pilotDays = user?.pilotDaysRemaining;
+  const pilotTotal = user?.pilotDaysTotal ?? 90;
 
   return (
     <>
@@ -29,16 +51,35 @@ export function OwnerDashboardPage() {
               <div style={{ fontSize: 14, fontWeight: 700, color: '#D64000', marginBottom: 4 }}>
                 🎓 You are on a Pilot Programme
               </div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>
+                {pilotTotal}-day trial ·{' '}
+                {pilotDays != null ? (
+                  <>
+                    <strong style={{ color: 'var(--at)' }}>{pilotDays} days remaining</strong>
+                  </>
+                ) : (
+                  'Pilot active'
+                )}{' '}
+                · {skuCount || 1} SKU{skuCount !== 1 ? 's' : ''} · Full platform access
+              </div>
               <div style={{ fontSize: 12, color: 'var(--text2)' }}>
-                {scBand} band · Full platform access during pilot · Convert to Full Deployment to unlock annual SKU licensing.
+                Your DORA models, consumer data, and loyalty points will carry forward automatically if you convert
+                to Full Deployment.
               </div>
             </div>
-            <Button
-              style={{ background: '#D64000', color: '#fff' }}
-              onClick={() => openModal('convert-deployment')}
-            >
-              Convert to Full Deployment
-            </Button>
+            <div style={{ textAlign: 'right', flexShrink: 0 }}>
+              <Button
+                style={{ background: '#D64000', color: '#fff', marginBottom: 5 }}
+                onClick={() => openModal('convert-deployment')}
+              >
+                Convert to Full Deployment
+              </Button>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                Effective cost: ₦1,000,000
+                <br />
+                (after ₦3,500,000 pilot credit)
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -73,10 +114,10 @@ export function OwnerDashboardPage() {
           trendType="up"
         />
         <KCard
-          label="Fraud Alerts (30d)"
-          value={String(kpis?.fraudAlerts ?? 0)}
-          trend={`${kpis?.activeConsumers ?? 0} consumers`}
-          trendType={kpis && kpis.fraudAlerts > 0 ? 'dn' : 'neu'}
+          label="Open Investigations"
+          value={String(openInvestigations)}
+          trend={openInvestigations > 0 ? 'Review queue' : 'Queue clear'}
+          trendType={openInvestigations > 0 ? 'dn' : 'neu'}
         />
       </KCardGrid>
 
@@ -159,40 +200,63 @@ export function OwnerDashboardPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Recent batches" />
-          <TableWrap>
-            <table>
-              <thead>
-                <tr>
-                  <th>Batch</th>
-                  <th>Product</th>
-                  <th>Qty</th>
-                  <th>DORA</th>
-                </tr>
-              </thead>
-              <tbody>
-                {batchRows.slice(0, 5).map((b) => (
-                  <tr key={b._id} className="cl" onClick={() => navigateTo(`/batches/detail?id=${b._id}`)}>
-                    <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{b.id}</td>
-                    <td>{b.product}</td>
-                    <td>{b.qty}</td>
-                    <td>
-                      <Badge variant={b.doraVariant}>{b.dora}</Badge>
-                    </td>
-                  </tr>
-                ))}
-                {batchRows.length === 0 && (
-                  <tr>
-                    <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text3)', padding: 16 }}>
-                      No batches yet.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </TableWrap>
+          <CardHeader title="Team activity" />
+          <div style={{ display: 'grid', gap: 7 }}>
+            {teamActivity.map((item) => (
+              <div
+                key={item.action}
+                style={{
+                  padding: 9,
+                  background: item.alert ? 'var(--rb)' : 'var(--bg)',
+                  borderRadius: 6,
+                  fontSize: 12,
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                  <strong>{item.who}</strong>
+                  <span style={{ color: 'var(--text3)' }}>{item.role}</span>
+                </div>
+                <div style={{ color: item.alert ? 'var(--rt)' : 'var(--text2)' }}>{item.action}</div>
+              </div>
+            ))}
+          </div>
         </Card>
       </div>
+
+      <Card style={{ marginTop: 14 }}>
+        <CardHeader title="Recent batches" />
+        <TableWrap>
+          <table>
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th>Product</th>
+                <th>Qty</th>
+                <th>DORA</th>
+              </tr>
+            </thead>
+            <tbody>
+              {batchRows.slice(0, 5).map((b) => (
+                <tr key={b._id} className="cl" onClick={() => navigateTo(`/batches/detail?id=${b._id}`)}>
+                  <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{b.id}</td>
+                  <td>{b.product}</td>
+                  <td>{b.qty}</td>
+                  <td>
+                    <Badge variant={b.doraVariant}>{b.dora}</Badge>
+                  </td>
+                </tr>
+              ))}
+              {batchRows.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text3)', padding: 16 }}>
+                    No batches yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </TableWrap>
+      </Card>
     </>
   );
 }

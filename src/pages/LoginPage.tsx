@@ -48,7 +48,7 @@ export function LoginPage() {
     try {
       const data = await authApi.login(email, password);
       if (data.accountType !== 'admin' && data.accountType !== 'user') {
-        setError('Use your SartorChain client admin account.');
+        setError('Use your Sartor-Chain client admin account.');
         return;
       }
       const profile = mapLoginToProfile(data);
@@ -68,8 +68,10 @@ export function LoginPage() {
         <div className="login-hero-overlay" />
         <div className="login-hero-content">
           <div className="login-hero-brand">
-            <img className="login-hero-mark brand-logo" src="/sartor-logo.jpg" alt="" width={36} height={36} />
-            <span>SARTOR CHAIN</span>
+            <div className="login-hero-mark smark" aria-hidden>
+              SC
+            </div>
+            <span>Sartor-Chain &amp; DORA AI</span>
           </div>
           <h1 className="login-hero-title">
             Authenticate products.
@@ -90,8 +92,10 @@ export function LoginPage() {
 
       <main className="login-panel">
         <div className="login-mobile-brand">
-          <img className="login-hero-mark brand-logo" src="/sartor-logo.jpg" alt="" width={32} height={32} />
-          <span>SartorChain Client Admin</span>
+          <div className="login-hero-mark smark" aria-hidden>
+            SC
+          </div>
+          <span>Sartor-Chain · DORASCAN Client Admin</span>
         </div>
 
         <form className="login-form" onSubmit={onSubmit}>
