@@ -73,4 +73,9 @@ export const batchesApi = {
     const filename = filenameFromDisposition(res.headers['content-disposition'], `${fileId}.${format.toLowerCase()}`);
     triggerBlobDownload(res.data, filename);
   },
+
+  downloadAsset: async (id: string, fileId: string, format: string) => {
+    await batchesApi.logDownload(id, fileId, format);
+    await batchesApi.downloadFile(id, fileId, format);
+  },
 };

@@ -96,8 +96,7 @@ export function BatchDownloadModal({ open, batch, onClose }: DownloadProps) {
   const handleDownload = async (fileId: string, format: string, title: string) => {
     if (!batch?.batchId) return;
     try {
-      await batchesApi.logDownload(batch.batchId, fileId, format);
-      await batchesApi.downloadFile(batch.batchId, fileId, format);
+      await batchesApi.downloadAsset(batch.batchId, fileId, format);
       showToast(`${title} downloaded (${format}).`, 'success');
     } catch (e) {
       showToast(e instanceof Error ? e.message : 'Download failed.', 'error');

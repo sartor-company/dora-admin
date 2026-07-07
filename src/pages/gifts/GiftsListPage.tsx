@@ -12,6 +12,7 @@ import { useTenantData } from '../../context/TenantDataContext';
 import { useToast } from '../../context/ToastContext';
 import { useTableFilter } from '../../hooks/useTableFilter';
 import type { CampaignListItem } from '../../types/gifts';
+import { downloadCsv } from '../../utils/export';
 
 function ScopeBadge({ scope }: { scope: 'CLIENT_WIDE' | 'SKU_SPECIFIC' }) {
   const isWide = scope === 'CLIENT_WIDE';
@@ -45,6 +46,20 @@ export function GiftsListPage() {
 
   const summary = campaignSummary;
 
+  const exportCsv = () => {
+    if (!campaigns.length) {
+      showToast('No campaigns to export.', 'warn');
+      return;
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadCsv(
+      `gift-campaigns-${stamp}.csv`,
+      ['Campaign', 'Status', 'Scope', 'Pools', 'Redeemed', 'Subtitle'],
+      campaigns.map((c) => [c.name, c.status, c.scope, c.pools, c.redeemed, c.subtitle || '']),
+    );
+    showToast('CSV exported', 'success');
+  };
+
   return (
     <>
       <PageHeader
@@ -52,7 +67,7 @@ export function GiftsListPage() {
         subtitle="Create and manage loyalty gift campaigns for your consumers"
         actions={
           <div className="pghead-actions" style={{ marginBottom: 0 }}>
-            <Button variant="secondary" size="sm" onClick={() => showToast('CSV exported')}>
+            <Button variant="secondary" size="sm" onClick={exportCsv}>
               Export CSV
             </Button>
             {!isReadOnly && (

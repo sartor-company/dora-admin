@@ -48,6 +48,20 @@ export function BatchDetailPage() {
   const [batchAnalytics, setBatchAnalytics] = useState<BatchAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  const handleBatchDownload = async (fileId: string, format: string, label: string) => {
+    if (!batchId) return;
+    setDownloading(fileId);
+    try {
+      await batchesApi.downloadAsset(batchId, fileId, format);
+      showToast(`${label} downloaded.`, 'success');
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Download failed.', 'error');
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   useEffect(() => {
     if (!batchId) {
@@ -244,9 +258,10 @@ export function BatchDetailPage() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => showToast('Carton QR label PDF downloaded.', 'success')}
+                disabled={downloading === 'carton-qr'}
+                onClick={() => handleBatchDownload('carton-qr', 'PDF', 'Carton QR label')}
               >
-                ↓ Download Carton Label
+                {downloading === 'carton-qr' ? 'Downloading…' : '↓ Download Carton Label'}
               </Button>
               {crmEnabled && (
                 <a
@@ -411,18 +426,20 @@ export function BatchDetailPage() {
             >
               <button
                 type="button"
-                onClick={() => showToast('Batch QR image downloaded.', 'success')}
+                disabled={downloading === 'sticker-qr'}
+                onClick={() => handleBatchDownload('sticker-qr', 'PNG', 'Batch QR image')}
                 style={{
                   background: 'none',
                   border: 'none',
                   padding: 0,
                   color: 'var(--bt)',
                   fontWeight: 600,
-                  cursor: 'pointer',
+                  cursor: downloading === 'sticker-qr' ? 'wait' : 'pointer',
                   fontSize: 12,
+                  opacity: downloading === 'sticker-qr' ? 0.7 : 1,
                 }}
               >
-                ↓ Download Batch QR Image
+                {downloading === 'sticker-qr' ? 'Downloading…' : '↓ Download Batch QR Image'}
               </button>
               <a
                 href={verifyUrl}

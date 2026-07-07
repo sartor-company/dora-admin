@@ -6,6 +6,7 @@ export interface ApiProduct {
   manufacturer?: string | null;
   description?: string | null;
   productImage?: string | null;
+  labelConfig?: '2sided' | '1sided' | '6sided';
   subdomain?: string;
   status?: string;
   batches?: ApiBatch[];

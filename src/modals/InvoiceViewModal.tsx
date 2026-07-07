@@ -8,6 +8,8 @@ import { useModal } from '../context/ModalContext';
 import { useAuthStore } from '../store/authStore';
 import { useToast } from '../context/ToastContext';
 import { formatApiDate, invoiceStatusVariant } from '../utils/mappers';
+import { downloadInvoicePdf } from '../utils/export';
+import { useApp } from '../context/AppContext';
 
 interface Props {
   open: boolean;
@@ -18,6 +20,7 @@ interface Props {
 export function InvoiceViewModal({ open, invoice, onClose }: Props) {
   const { openModal } = useModal();
   const { showToast } = useToast();
+  const { companyName } = useApp();
   const userEmail = useAuthStore((s) => s.user?.email);
 
   const canPay =
@@ -96,7 +99,11 @@ export function InvoiceViewModal({ open, invoice, onClose }: Props) {
       <ModalFooter>
         <Button
           variant="secondary"
-          onClick={() => showToast(`Invoice ${invoice?.invoiceId || ''} PDF downloading.`, 'success')}
+          onClick={() => {
+            if (!invoice) return;
+            downloadInvoicePdf(invoice, companyName);
+            showToast(`Invoice ${invoice.invoiceId} PDF downloaded.`, 'success');
+          }}
         >
           ↓ Download PDF
         </Button>

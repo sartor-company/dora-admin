@@ -47,6 +47,26 @@ export function StaffSettingsForm({ roleSubtitle, notificationItems, showCredits
   const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'usage'>('profile');
 
   useEffect(() => {
+    if (!user?._id || user.accountType === 'admin') return;
+    let cancelled = false;
+    usersApi
+      .getProfile()
+      .then((profile) => {
+        if (cancelled) return;
+        updateProfile({
+          fullName: profile.fullName,
+          displayName: profile.fullName,
+          phone: profile.phone,
+          notificationPrefs: profile.notificationPrefs as typeof user.notificationPrefs,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user?._id, user?.accountType, updateProfile]);
+
+  useEffect(() => {
     const name = user?.displayName || user?.fullName || '';
     const { first, last } = splitName(name);
     setFirstName(first);

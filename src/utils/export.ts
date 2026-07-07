@@ -93,3 +93,31 @@ export function downloadPdfReport(opts: PdfReportOptions) {
 
   doc.save(`${opts.title.replace(/\s+/g, '-').toLowerCase()}-${Date.now()}.pdf`);
 }
+
+export function downloadInvoicePdf(invoice: {
+  invoiceId: string;
+  description: string;
+  status: string;
+  amount: number;
+  issuedAt?: number | string;
+  creationDateTime?: number | string;
+}, companyName: string) {
+  const date =
+    invoice.issuedAt || invoice.creationDateTime
+      ? new Date(invoice.issuedAt || invoice.creationDateTime!).toLocaleDateString('en-GB')
+      : '—';
+  downloadPdfReport({
+    title: `Invoice ${invoice.invoiceId}`,
+    subtitle: 'Payable to Sartor Limited · RC 1845734',
+    company: companyName,
+    headers: ['Field', 'Value'],
+    rows: [
+      ['Invoice No.', invoice.invoiceId],
+      ['Date', date],
+      ['Description', invoice.description],
+      ['Status', invoice.status],
+      ['Amount (NGN)', invoice.amount.toLocaleString()],
+    ],
+    summary: [{ label: 'Total Due', value: `₦${invoice.amount.toLocaleString()}` }],
+  });
+}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { productsApi } from '../api/products';
+import { productsApi, type ProductImageSlot } from '../api/products';
 import { StepWizardModal, type StepDef } from '../components/wizards/StepWizardModal';
 import { ChoiceCard } from '../components/wizards/ChoiceCard';
 import { ImageUploadZone } from '../components/wizards/ImageUploadZone';
@@ -57,6 +57,7 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
   const [description, setDescription] = useState('');
   const [labelConfig, setLabelConfig] = useState<LabelConfig>('2sided');
   const [licenceCount, setLicenceCount] = useState(1);
+  const [imageFiles, setImageFiles] = useState<Partial<Record<ProductImageSlot, File | null>>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -80,11 +81,30 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
       setDescription('');
       setLabelConfig('2sided');
       setLicenceCount(1);
+      setImageFiles({});
     }
     setError('');
   }, [open, isEdit, editPayload]);
 
   const handleClose = () => onClose();
+
+  const setImageFile = (slot: ProductImageSlot, file: File | null) => {
+    setImageFiles((prev) => ({ ...prev, [slot]: file }));
+  };
+
+  const validateReferenceImages = (): string | null => {
+    if (labelConfig === '1sided') {
+      if (!imageFiles.front) return 'Front label image is required.';
+      return null;
+    }
+    if (labelConfig === '2sided') {
+      if (!imageFiles.front) return 'Front image is required.';
+      if (!imageFiles.back) return 'Back image is required.';
+      return null;
+    }
+    if (!imageFiles.front) return 'Front image is required for multi-sided labels.';
+    return null;
+  };
 
   const handleSubmit = async () => {
     if (!productName.trim()) {
@@ -98,6 +118,13 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
     if (!isEdit && barcodeMode === 'have' && !barcodeNumber.trim()) {
       setError('Enter your barcode or choose auto-generate.');
       throw new Error('validation');
+    }
+    if (!isEdit) {
+      const imageError = validateReferenceImages();
+      if (imageError) {
+        setError(imageError);
+        throw new Error('validation');
+      }
     }
     setSaving(true);
     setError('');
@@ -115,8 +142,14 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
       };
       if (isEdit && editId) {
         await productsApi.update(editId, body);
+        const hasImages = Object.values(imageFiles).some(Boolean);
+        if (hasImages) {
+          const cfg = (editPayload?.product?.labelConfig as LabelConfig | undefined) || labelConfig;
+          await productsApi.uploadReferenceImages(editId, imageFiles, cfg);
+        }
       } else {
-        await productsApi.create(body);
+        const created = await productsApi.create(body);
+        await productsApi.uploadReferenceImages(created._id, imageFiles, labelConfig);
       }
       await refreshProducts();
       onSuccess();
@@ -132,21 +165,50 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
   const wizardSteps = useMemo((): StepDef[] => {
     const imageZones =
       labelConfig === '1sided' ? (
-        <ImageUploadZone label="Label Image" required hint="PNG, JPG · Max 20MB" />
+        <ImageUploadZone
+          label="Label Image"
+          required
+          hint="PNG, JPG · Max 20MB"
+          file={imageFiles.front}
+          onFileChange={(f) => setImageFile('front', f)}
+        />
       ) : labelConfig === '6sided' ? (
         <>
-          {['Top', 'Front', 'Right', 'Back', 'Left', 'Bottom'].map((side) => (
+          {(
+            [
+              ['top', 'Top Image'],
+              ['front', 'Front Image *'],
+              ['right', 'Right Image'],
+              ['back', 'Back Image'],
+              ['left', 'Left Image'],
+              ['bottom', 'Bottom Image'],
+            ] as [ProductImageSlot, string][]
+          ).map(([slot, lbl]) => (
             <ImageUploadZone
-              key={side}
-              label={`${side} Image${side === 'Front' ? ' *' : ''}`}
-              required={side === 'Front'}
+              key={slot}
+              label={lbl}
+              required={slot === 'front'}
+              file={imageFiles[slot]}
+              onFileChange={(f) => setImageFile(slot, f)}
             />
           ))}
         </>
       ) : (
         <>
-          <ImageUploadZone label="Front Image" required hint="PNG, JPG, TIFF · Max 20MB · Full label visible" />
-          <ImageUploadZone label="Back Image" hint="PNG, JPG, TIFF · Max 20MB" />
+          <ImageUploadZone
+            label="Front Image"
+            required
+            hint="PNG, JPG, TIFF · Max 20MB · Full label visible"
+            file={imageFiles.front}
+            onFileChange={(f) => setImageFile('front', f)}
+          />
+          <ImageUploadZone
+            label="Back Image"
+            required
+            hint="PNG, JPG, TIFF · Max 20MB"
+            file={imageFiles.back}
+            onFileChange={(f) => setImageFile('back', f)}
+          />
         </>
       );
 
@@ -334,6 +396,7 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
     skuLabelName,
     labelConfig,
     licenceCount,
+    imageFiles,
   ]);
 
   if (isEdit) {
@@ -356,6 +419,22 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
         <FormGroup label="Description">
           <input className="inp" value={description} onChange={(e) => setDescription(e.target.value)} />
         </FormGroup>
+        <div style={{ marginTop: 8, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>Reference images (optional)</div>
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>
+            Upload new images to replace product reference photos used by DORA.
+          </div>
+          <ImageUploadZone
+            label="Front Image"
+            file={imageFiles.front}
+            onFileChange={(f) => setImageFile('front', f)}
+          />
+          <ImageUploadZone
+            label="Back Image"
+            file={imageFiles.back}
+            onFileChange={(f) => setImageFile('back', f)}
+          />
+        </div>
         <ModalFooter>
           <Button variant="secondary" onClick={handleClose} disabled={saving}>
             Cancel

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { batchesApi } from '../api/batches';
+import { labelsApi } from '../api/labels';
 import { suppliersApi } from '../api/suppliers';
 import { StepWizardModal, type StepDef } from '../components/wizards/StepWizardModal';
 import { ChoiceCard } from '../components/wizards/ChoiceCard';
@@ -40,6 +41,10 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
   const [cartonQr, setCartonQr] = useState(true);
   const [unitsPerCarton, setUnitsPerCarton] = useState('24');
   const [labelConfig, setLabelConfig] = useState<LabelConfig>('2sided');
+  const [doraImages, setDoraImages] = useState<{ front: File | null; back: File | null }>({
+    front: null,
+    back: null,
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -55,6 +60,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
     setCartonQr(true);
     setUnitsPerCarton('24');
     setLabelConfig('2sided');
+    setDoraImages({ front: null, back: null });
     setError('');
   };
 
@@ -87,7 +93,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
       const expiryTs = new Date(expiryDate).getTime();
       const manufactureTs = manufactureDate ? new Date(manufactureDate).getTime() : undefined;
 
-      await batchesApi.create({
+      const created = await batchesApi.create({
         manufacturer: mfr,
         product: productId,
         invoiceNumber: `INV-${Date.now()}`,
@@ -106,6 +112,11 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
           },
         ],
       });
+      const batchId = created[0]?._id;
+      if (batchId && doraImages.front) {
+        const back = doraImages.back || doraImages.front;
+        await labelsApi.upload(productId, batchId, doraImages.front, back);
+      }
       await refreshBatches();
       reset();
       onSuccess();
@@ -123,15 +134,38 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
   const steps = useMemo((): StepDef[] => {
     const doraZones =
       labelConfig === '1sided' ? (
-        <ImageUploadZone label="Label Image * (1 image)" required />
+        <ImageUploadZone
+          label="Label Image * (1 image)"
+          required
+          file={doraImages.front}
+          onFileChange={(f) => setDoraImages((prev) => ({ ...prev, front: f }))}
+        />
       ) : labelConfig === '6sided' ? (
         ['Top', 'Front', 'Right', 'Back', 'Left', 'Bottom'].map((side) => (
-          <ImageUploadZone key={side} label={`${side} (1 image)${side === 'Front' ? ' *' : ''}`} required={side === 'Front'} />
+          <ImageUploadZone
+            key={side}
+            label={`${side} (1 image)${side === 'Front' ? ' *' : ''}`}
+            required={side === 'Front'}
+            file={side === 'Front' ? doraImages.front : side === 'Back' ? doraImages.back : null}
+            onFileChange={(f) => {
+              if (side === 'Front') setDoraImages((prev) => ({ ...prev, front: f }));
+              if (side === 'Back') setDoraImages((prev) => ({ ...prev, back: f }));
+            }}
+          />
         ))
       ) : (
         <>
-          <ImageUploadZone label="Front Label Image (1 image) *" required />
-          <ImageUploadZone label="Back Label Image (1 image)" />
+          <ImageUploadZone
+            label="Front Label Image (1 image) *"
+            required
+            file={doraImages.front}
+            onFileChange={(f) => setDoraImages((prev) => ({ ...prev, front: f }))}
+          />
+          <ImageUploadZone
+            label="Back Label Image (1 image)"
+            file={doraImages.back}
+            onFileChange={(f) => setDoraImages((prev) => ({ ...prev, back: f }))}
+          />
         </>
       );
 
@@ -222,10 +256,18 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
               />
             </div>
             {snMode === 'upload' && (
-              <div className="imgzone" style={{ marginTop: 12 }}>
-                <div className="ic">📄</div>
-                <p>Drop CSV or Excel manifest here</p>
-                <small>Required column: serial_number</small>
+              <div
+                style={{
+                  marginTop: 12,
+                  padding: 12,
+                  background: 'var(--ab)',
+                  borderRadius: 8,
+                  fontSize: 12,
+                  color: 'var(--at)',
+                }}
+              >
+                SN manifest upload is not available in the console yet. Create the batch with auto-generated serials,
+                then download the SN manifest template from the batch package.
               </div>
             )}
           </>
@@ -320,6 +362,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
     cartonQr,
     unitsPerCarton,
     labelConfig,
+    doraImages,
     verifyUrl,
   ]);
 

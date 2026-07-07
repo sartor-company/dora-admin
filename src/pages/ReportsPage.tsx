@@ -34,6 +34,22 @@ export function ReportsPage() {
     showToast('Report downloaded', 'success');
   };
 
+  const downloadPreset = (type: string, presetFormat: 'csv' | 'pdf', name: string) => {
+    const result = generateReport(type, presetFormat, {
+      analytics,
+      investigations,
+      products,
+      campaigns,
+      invoices,
+      companyName,
+    });
+    if (!result.ok) {
+      showToast(result.message);
+      return;
+    }
+    showToast(`${name} downloaded`, 'success');
+  };
+
   return (
     <>
       <PageHeader title="Reports" subtitle="Generate and download platform reports" />
@@ -137,10 +153,10 @@ export function ReportsPage() {
             </div>
             <div style={{ display: 'grid', gap: 8, fontSize: 12 }}>
               {[
-                { name: 'Authentication Summary', detail: 'Apr 1–Apr 30, 2026 · All SKUs · CSV' },
-                { name: 'Loyalty & Redemptions', detail: 'Mar 1–Mar 31, 2026 · All SKUs · PDF' },
-                { name: 'Batch Performance', detail: 'Q1 2026 · SHS-001 · CSV' },
-                { name: 'Fraud & Investigation', detail: 'Jan 1–Mar 31, 2026 · All SKUs · PDF' },
+                { name: 'Authentication Summary', detail: 'Apr 1–Apr 30, 2026 · All SKUs · CSV', type: 'auth', fmt: 'csv' as const },
+                { name: 'Loyalty & Redemptions', detail: 'Mar 1–Mar 31, 2026 · All SKUs · PDF', type: 'loyalty', fmt: 'pdf' as const },
+                { name: 'Batch Performance', detail: 'Q1 2026 · SHS-001 · CSV', type: 'batch', fmt: 'csv' as const },
+                { name: 'Fraud & Investigation', detail: 'Jan 1–Mar 31, 2026 · All SKUs · PDF', type: 'fraud', fmt: 'pdf' as const },
               ].map((r) => (
                 <div
                   key={r.name}
@@ -167,7 +183,7 @@ export function ReportsPage() {
                       border: 'none',
                       font: 'inherit',
                     }}
-                    onClick={() => showToast('Downloading report...')}
+                    onClick={() => downloadPreset(r.type, r.fmt, r.name)}
                   >
                     ↓ Download
                   </button>
