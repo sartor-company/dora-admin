@@ -11,6 +11,7 @@ import { Toggle } from '../components/ui/Toggle';
 import { consumerVerifyUrl, DORASCAN_VERIFY_BASE } from '../constants/dorascan';
 import { useTenantData } from '../context/TenantDataContext';
 import { useAuthStore } from '../store/authStore';
+import { downloadCsv } from '../utils/export';
 
 interface BatchCreateModalProps {
   open: boolean;
@@ -25,6 +26,65 @@ function generateBatchNumber() {
   return `BATCH-2026-Q2-${Math.floor(Math.random() * 900) + 100}`;
 }
 
+function downloadSampleSnManifest(batchNumber: string) {
+  const sampleBatch = batchNumber.trim() || 'BATCH-SAMPLE-001';
+  const prefix = sampleBatch.replace(/[^A-Za-z0-9]/g, '').slice(0, 12) || 'BATCHSAMPLE';
+  const rows = Array.from({ length: 8 }, (_, i) => [
+    `${prefix}-${String(i + 1).padStart(4, '0')}`,
+  ]);
+  downloadCsv('sn-manifest-sample.csv', ['serial_number'], rows);
+}
+
+function parseCsvRow(line: string): string[] {
+  const cols: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      const next = line[i + 1];
+      if (inQuotes && next === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+    if (ch === ',' && !inQuotes) {
+      cols.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += ch;
+  }
+  cols.push(current.trim());
+  return cols.map((v) => v.replace(/^"|"$/g, '').trim());
+}
+
+async function parseSnManifest(file: File): Promise<string[]> {
+  const text = await file.text();
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (!lines.length) throw new Error('SN manifest is empty.');
+
+  const header = parseCsvRow(lines[0]).map((h) => h.toLowerCase());
+  const snIndex = header.findIndex((h) => h === 'serial_number' || h === 'serialnumber' || h === 'serial');
+  if (snIndex < 0) throw new Error("SN manifest must contain a 'serial_number' column.");
+
+  const serials = lines
+    .slice(1)
+    .map((line) => parseCsvRow(line)[snIndex] || '')
+    .map((v) => v.trim())
+    .filter(Boolean);
+
+  if (!serials.length) throw new Error('SN manifest has no serial numbers.');
+
+  return serials;
+}
+
 export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalProps) {
   const { products, refreshBatches } = useTenantData();
   const user = useAuthStore((s) => s.user);
@@ -37,6 +97,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
   const [quantity, setQuantity] = useState('');
   const [supplier, setSupplier] = useState('');
   const [snMode, setSnMode] = useState<SnMode>('auto');
+  const [snFile, setSnFile] = useState<File | null>(null);
   const [pinFormat, setPinFormat] = useState('10an');
   const [cartonQr, setCartonQr] = useState(true);
   const [unitsPerCarton, setUnitsPerCarton] = useState('24');
@@ -56,6 +117,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
     setQuantity('');
     setSupplier('');
     setSnMode('auto');
+    setSnFile(null);
     setPinFormat('10an');
     setCartonQr(true);
     setUnitsPerCarton('24');
@@ -87,6 +149,24 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
     setSaving(true);
     setError('');
     try {
+      let serialNumbers: string[] | undefined;
+      if (snMode === 'upload') {
+        if (!snFile) {
+          setError('Upload your SN manifest file.');
+          throw new Error('validation');
+        }
+        serialNumbers = await parseSnManifest(snFile);
+        const uniq = new Set(serialNumbers);
+        if (uniq.size !== serialNumbers.length) {
+          setError('SN manifest contains duplicate serial numbers.');
+          throw new Error('validation');
+        }
+        if (serialNumbers.length !== qty) {
+          setError(`SN manifest rows (${serialNumbers.length}) must match quantity (${qty}).`);
+          throw new Error('validation');
+        }
+      }
+
       const supplierRec = await suppliersApi.ensureDefault(user.email, user.fullName);
       const selected = products.find((p) => p._id === productId);
       const mfr = supplier.trim() || selected?.manufacturer || user.fullName || 'Manufacturer';
@@ -105,6 +185,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
             expiryDate: expiryTs,
             manufactureDate: manufactureTs ?? null,
             snMode,
+            serialNumbers,
             pinFormat,
             unitsPerCarton: parseInt(unitsPerCarton, 10) || 24,
             cartonQrEnabled: cartonQr,
@@ -266,8 +347,28 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
                   color: 'var(--at)',
                 }}
               >
-                SN manifest upload is not available in the console yet. Create the batch with auto-generated serials,
-                then download the SN manifest template from the batch package.
+                Upload CSV with required <strong>serial_number</strong> column. The number of rows must exactly match
+                the batch quantity.
+                <div style={{ marginTop: 10 }}>
+                  <input
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="inp"
+                    onChange={(e) => setSnFile(e.target.files?.[0] ?? null)}
+                  />
+                  <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text3)' }}>
+                    {snFile ? `Selected: ${snFile.name}` : 'No file selected'}
+                  </div>
+                </div>
+                <div style={{ marginTop: 10 }}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => downloadSampleSnManifest(batchNumber)}
+                  >
+                    ↓ Download Sample SN Manifest
+                  </Button>
+                </div>
               </div>
             )}
           </>

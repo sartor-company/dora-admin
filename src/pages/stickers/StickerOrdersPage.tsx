@@ -20,8 +20,8 @@ const STATUS_VARIANT: Record<StickerOrderRow['status'], 'bg' | 'ba' | 'bx' | 'bb
 };
 
 export function StickerOrdersPage() {
-  const { pinCredits, batchCalCredits, isReadOnly } = useApp();
-  const { stickerOrders, stickerSummary, refreshStickerOrders } = useTenantData();
+  const { pinCredits, batchCalCredits, isReadOnly, navigateTo } = useApp();
+  const { stickerOrders, stickerSummary, refreshStickerOrders, batches } = useTenantData();
   const { openModal } = useModal();
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -49,7 +49,7 @@ export function StickerOrdersPage() {
   const pinReserved = stickerOrders
     .filter((r) => r.status !== 'Activated')
     .reduce((sum, r) => sum + r.pins, 0);
-  const netAvailable = Math.max(pinCredits, 0);
+  const netAvailable = Math.max(pinCredits - pinReserved, 0);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -74,6 +74,7 @@ export function StickerOrdersPage() {
       id: row.id,
       ref: row.ref,
       product: row.product,
+      productId: row.productId,
       planned: row.planned,
       printed: row.printed,
     };
@@ -119,7 +120,11 @@ export function StickerOrdersPage() {
           </div>
           {!isReadOnly && (
             <div style={{ marginLeft: 'auto' }}>
-              <Button variant="ghost" size="sm" onClick={() => openModal('buy-credits')}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => openModal('buy-credits', { tab: 'cal' })}
+              >
                 + Buy Credits
               </Button>
             </div>
@@ -234,16 +239,46 @@ export function StickerOrdersPage() {
                     <td data-label="Action">
                       {row.status === 'Delivered' && !isReadOnly && (
                         <Button variant="accent" size="sm" onClick={() => openActivate(row)}>
-                          Activate Batch
+                          Activate Batch →
                         </Button>
                       )}
-                      {row.status === 'Activated' && (
+                      {row.status === 'Activated' && row.batch && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            const batch = batches.find((b) => b.batchNumber === row.batch);
+                            if (batch?._id) navigateTo(`/batches/detail?id=${batch._id}`);
+                          }}
+                        >
+                          View Batch
+                        </Button>
+                      )}
+                      {row.status === 'Activated' && !row.batch && (
                         <Button variant="secondary" size="sm" disabled>
                           Activated
                         </Button>
                       )}
                       {row.status === 'Dispatched' && (
-                        <span style={{ fontSize: 11, color: 'var(--text3)' }}>In transit</span>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            openModal('sticker-track', {
+                              ref: row.ref,
+                              product: row.product,
+                              status: row.status,
+                              tracking: row.tracking,
+                              ordered: row.ordered,
+                              printed: row.printed,
+                            })
+                          }
+                        >
+                          Track
+                        </Button>
+                      )}
+                      {(row.status === 'Planned' || row.status === 'In Production') && (
+                        <span style={{ fontSize: 11, color: 'var(--text3)' }}>—</span>
                       )}
                     </td>
                   </tr>

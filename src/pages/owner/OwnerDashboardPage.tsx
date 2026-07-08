@@ -119,6 +119,12 @@ export function OwnerDashboardPage() {
           trend={openInvestigations > 0 ? 'Review queue' : 'Queue clear'}
           trendType={openInvestigations > 0 ? 'dn' : 'neu'}
         />
+        <KCard
+          label="Total PIN Credits"
+          value={pinCredits.toLocaleString()}
+          trend="Available for activation"
+          trendType={pinCredits > 0 ? 'up' : 'neu'}
+        />
       </KCardGrid>
 
       <div className="r2">

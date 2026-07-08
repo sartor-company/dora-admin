@@ -1211,6 +1211,9 @@ tr.cl {
   flex-shrink: 0;
   object-fit: cover;
 }
+.login-hero-mark.brand-logo {
+  background: transparent;
+}
 .login-hero-title {
   font-size: clamp(2rem, 4vw, 2.75rem);
   font-weight: 700;

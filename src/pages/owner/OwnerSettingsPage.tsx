@@ -43,10 +43,11 @@ const NOTIFICATION_ITEMS: { key: keyof NotificationPrefs; label: string; desc: s
 ];
 
 export function OwnerSettingsPage() {
-  const { clientType, companyName, currency, setCurrency, verifyDomain, smsCredits, pinCredits, batchCalCredits } = useApp();
+  const { clientType, companyName, currency, setCurrency, verifyDomain, smsCredits, pinCredits, batchCalCredits, navigateTo } = useApp();
   const user = useAuthStore((s) => s.user);
   const updateProfile = useAuthStore((s) => s.updateProfile);
-  const { team, products, invoices, refreshInvoices, refreshAccount } = useTenantData();
+  const { team, products, invoices, refreshInvoices, refreshAccount, stickerOrders, refreshStickerOrders } =
+    useTenantData();
   const { openModal } = useModal();
   const { showToast } = useToast();
   const { active, setActive } = useTabs<SettingsTab>('general');
@@ -70,6 +71,10 @@ export function OwnerSettingsPage() {
     setNotifPrefs({ ...DEFAULT_NOTIFICATION_PREFS, ...user?.notificationPrefs });
     setCampaignStacking(!!user?.campaignStacking);
   }, [user]);
+
+  useEffect(() => {
+    refreshStickerOrders().catch(() => {});
+  }, [refreshStickerOrders]);
 
   const saveProfile = async () => {
     setProfileSaving(true);
@@ -487,11 +492,64 @@ export function OwnerSettingsPage() {
             </div>
           )}
           <div className="credits-grid">
-            {[
-              { title: 'PIN Authentication Credits', purchased: pinCredits, used: 0, remaining: pinCredits, pct: pinCredits > 0 ? 100 : 0, note: 'Balance from your Sartor account.' },
-              { title: 'SMS Notification Credits', purchased: smsCredits, used: 0, remaining: smsCredits, pct: smsCredits > 0 ? 100 : 0, color: 'var(--amber)', remainingColor: smsCredits < 1000 ? 'var(--at)' : 'var(--gt)', note: 'Balance from your Sartor account.' },
-              { title: 'Batch Calibration Credits', purchased: batchCalCredits, used: 0, remaining: batchCalCredits, pct: batchCalCredits > 0 ? 100 : 0, note: 'Used when activating new sticker batches.' },
-            ].map((c) => (
+            {(() => {
+              const pinPurchased = invoices
+                .filter((i) => i.status === 'Paid' && i.creditType === 'pin')
+                .reduce((s, i) => s + (i.creditQuantity || 0), 0);
+              const smsPurchased = invoices
+                .filter((i) => i.status === 'Paid' && i.creditType === 'sms')
+                .reduce((s, i) => s + (i.creditQuantity || 0), 0);
+              const batchPurchased = invoices
+                .filter((i) => i.status === 'Paid' && i.creditType === 'batch')
+                .reduce((s, i) => s + (i.creditQuantity || 0), 0);
+
+              const pinReserved = stickerOrders
+                .filter((r) => r.status !== 'Activated')
+                .reduce((sum, r) => sum + r.pins, 0);
+              const pinUsed = Math.max(0, Math.max(pinPurchased, pinCredits + pinReserved) - pinCredits);
+              const smsUsed = Math.max(0, Math.max(smsPurchased, smsCredits) - smsCredits);
+              // Prefer invoice-funded view when history exists; otherwise show available balance only.
+              const pinTotal = Math.max(pinPurchased, pinCredits + pinUsed);
+              const smsTotal = Math.max(smsPurchased, smsCredits + smsUsed);
+              const batchTotal = Math.max(batchPurchased, batchCalCredits);
+              const batchUsed = Math.max(0, batchTotal - batchCalCredits);
+
+              const cards = [
+                {
+                  title: 'PIN Authentication Credits',
+                  purchased: pinTotal,
+                  used: pinUsed,
+                  remaining: pinCredits,
+                  pct: pinTotal > 0 ? Math.round((pinCredits / pinTotal) * 100) : 0,
+                  note:
+                    pinReserved > 0
+                      ? `${pinReserved.toLocaleString()} reserved on open sticker orders · Available shown as Remaining.`
+                      : 'Remaining is your spendable PIN balance.',
+                  tab: 'pin' as const,
+                },
+                {
+                  title: 'SMS Notification Credits',
+                  purchased: smsTotal,
+                  used: smsUsed,
+                  remaining: smsCredits,
+                  pct: smsTotal > 0 ? Math.round((smsCredits / smsTotal) * 100) : 0,
+                  color: 'var(--amber)',
+                  remainingColor: smsCredits < 1000 ? 'var(--at)' : 'var(--gt)',
+                  note: 'Used is inferred from paid invoices vs current balance (pilot grants may not appear as invoices).',
+                  tab: 'sms' as const,
+                },
+                {
+                  title: 'Batch Calibration Credits',
+                  purchased: batchTotal,
+                  used: batchUsed,
+                  remaining: batchCalCredits,
+                  pct: batchTotal > 0 ? Math.round((batchCalCredits / batchTotal) * 100) : 0,
+                  note: '1 credit is consumed when you activate a sticker batch.',
+                  tab: 'cal' as const,
+                },
+              ];
+
+                  return cards.map((c) => (
               <div key={c.title} className="ccard">
                 <div className="ch">
                   <div>
@@ -500,18 +558,25 @@ export function OwnerSettingsPage() {
                       Never expire while active · Protected on lapse
                     </div>
                   </div>
-                  <Button size="sm" onClick={() => openModal('buy-credits')}>
+                  <Button
+                    size="sm"
+                    onClick={() => openModal('buy-credits', { tab: c.tab })}
+                  >
                     Buy More
                   </Button>
                 </div>
                 <div style={{ display: 'flex', gap: 16, fontSize: 12, marginBottom: 7 }}>
                   <div>
-                    <div style={{ color: 'var(--text3)' }}>Purchased</div>
-                    <div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{c.purchased}</div>
+                    <div style={{ color: 'var(--text3)' }}>Funded / basis</div>
+                    <div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
+                      {c.purchased.toLocaleString()}
+                    </div>
                   </div>
                   <div>
                     <div style={{ color: 'var(--text3)' }}>Used</div>
-                    <div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>{c.used}</div>
+                    <div style={{ fontWeight: 700, fontFamily: "'DM Mono', monospace" }}>
+                      {c.used.toLocaleString()}
+                    </div>
                   </div>
                   <div>
                     <div style={{ color: 'var(--text3)' }}>Remaining</div>
@@ -522,14 +587,15 @@ export function OwnerSettingsPage() {
                         color: c.remainingColor ?? 'var(--gt)',
                       }}
                     >
-                      {c.remaining}
+                      {c.remaining.toLocaleString()}
                     </div>
                   </div>
                 </div>
                 <ProgressBar percent={c.pct} color={c.color} />
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 5 }}>{c.note}</div>
               </div>
-            ))}
+              ));
+            })()}
           </div>
           <Card style={{ marginBottom: 12 }}>
             <CardHeader
@@ -732,19 +798,28 @@ export function OwnerSettingsPage() {
             />
           </div>
           {[
-            { label: 'Consumer loyalty points (10 per auth)', desc: 'Award 10 points per authenticated post-purchase scan', on: true },
-            { label: 'First authentication welcome gift (FIRST_AUTH)', desc: "Trigger gift notification on consumer's first ever authentication", on: true },
-            { label: '10th authentication milestone gift', desc: "Trigger a gift on consumer's 10th authenticated product", on: true },
-            { label: 'Monthly Top 10 consumers gift', desc: 'Award gifts to top 10 highest-authenticating consumers each calendar month', on: true },
+            {
+              label: 'Consumer loyalty points (10 per auth)',
+              desc: 'Awarded automatically by the consumer verification flow when points are enabled on scan records.',
+            },
+            {
+              label: 'FIRST_AUTH / milestone / monthly-top gifts',
+              desc: 'Configured per campaign in Gift Engine (trigger type + pool). Manage live campaigns under Gifts.',
+            },
           ].map((item) => (
             <div key={item.label} className="twrap">
               <div>
                 <div className="tlbl">{item.label}</div>
                 <div className="tdesc">{item.desc}</div>
               </div>
-              <Toggle on={item.on} />
+              <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap' }}>Campaign-driven</span>
             </div>
           ))}
+          <div style={{ marginTop: 4 }}>
+            <Button variant="secondary" size="sm" onClick={() => navigateTo('/gifts')}>
+              Open Gift Engine →
+            </Button>
+          </div>
           {giftSaving && (
             <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>Saving…</div>
           )}

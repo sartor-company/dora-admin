@@ -13,22 +13,38 @@ interface Props {
 }
 
 export function ReportsModal({ open, onClose, showToast }: Props) {
-  const { companyName } = useApp();
+  const { companyName, navigateTo } = useApp();
   const { analytics, investigations, products, campaigns, invoices } = useTenantData();
   const [reportType, setReportType] = useState('');
   const [format, setFormat] = useState<'csv' | 'pdf'>('csv');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [skuFilter, setSkuFilter] = useState('');
 
   const handleGenerate = () => {
+    if (!reportType) {
+      showToast('Select a report type', 'warn');
+      return;
+    }
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      showToast('Date From must be on or before Date To.', 'warn');
+      return;
+    }
+    const filtered = skuFilter ? products.filter((p) => p._id === skuFilter) : products;
+    const skuLabel = filtered.length === 1 ? filtered[0].productName : 'All products';
     const result = generateReport(reportType, format, {
       analytics,
       investigations,
-      products,
+      products: filtered,
       campaigns,
       invoices,
       companyName,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+      skuLabel,
     });
     if (!result.ok) {
-      showToast(result.message);
+      showToast(result.message, 'warn');
       return;
     }
     onClose();
@@ -41,7 +57,7 @@ export function ReportsModal({ open, onClose, showToast }: Props) {
         <select className="inp" value={reportType} onChange={(e) => setReportType(e.target.value)}>
           <option value="">Select report type...</option>
           <option value="auth">Authentication Summary — scan volume, auth rate, outcomes</option>
-          <option value="batch">Batch Performance — per-batch scan rates, delivery, DORA status</option>
+          <option value="batch">Batch Performance — per-batch scan rates, DORA status</option>
           <option value="fraud">Fraud & Investigation Report</option>
           <option value="loyalty">Loyalty & Redemptions Report</option>
           <option value="credits">Credit Usage Report</option>
@@ -49,18 +65,18 @@ export function ReportsModal({ open, onClose, showToast }: Props) {
         </select>
       </FormGroup>
       <div className="fr2">
-        <FormGroup label="Date From *">
-          <input type="date" className="inp" />
+        <FormGroup label="Date From">
+          <input type="date" className="inp" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
         </FormGroup>
-        <FormGroup label="Date To *">
-          <input type="date" className="inp" />
+        <FormGroup label="Date To">
+          <input type="date" className="inp" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
         </FormGroup>
       </div>
       <FormGroup label="Product Filter">
-        <select className="inp">
-          <option>All Products</option>
+        <select className="inp" value={skuFilter} onChange={(e) => setSkuFilter(e.target.value)}>
+          <option value="">All Products</option>
           {products.map((p) => (
-            <option key={p._id}>
+            <option key={p._id} value={p._id}>
               {p.productName}
               {p.batchId ? ` (${p.batchId})` : ''}
             </option>
@@ -69,56 +85,49 @@ export function ReportsModal({ open, onClose, showToast }: Props) {
       </FormGroup>
       <FormGroup label="Format">
         <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '7px 12px',
-              border: format === 'csv' ? '2px solid var(--navy)' : '1px solid var(--border)',
-              borderRadius: 7,
-              background: format === 'csv' ? 'var(--bb)' : undefined,
-              cursor: 'pointer',
-              fontSize: 12,
-              fontWeight: format === 'csv' ? 600 : undefined,
-              color: format === 'csv' ? 'var(--bt)' : undefined,
-            }}
-          >
-            <input
-              type="radio"
-              name="mfmt"
-              checked={format === 'csv'}
-              onChange={() => setFormat('csv')}
-              style={{ margin: 0 }}
-            />{' '}
-            CSV
-          </label>
-          <label
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '7px 12px',
-              border: format === 'pdf' ? '2px solid var(--navy)' : '1px solid var(--border)',
-              borderRadius: 7,
-              background: format === 'pdf' ? 'var(--bb)' : undefined,
-              cursor: 'pointer',
-              fontSize: 12,
-              fontWeight: format === 'pdf' ? 600 : undefined,
-              color: format === 'pdf' ? 'var(--bt)' : undefined,
-            }}
-          >
-            <input
-              type="radio"
-              name="mfmt"
-              checked={format === 'pdf'}
-              onChange={() => setFormat('pdf')}
-              style={{ margin: 0 }}
-            />{' '}
-            PDF
-          </label>
+          {(['csv', 'pdf'] as const).map((fmt) => (
+            <label
+              key={fmt}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 12px',
+                border: format === fmt ? '2px solid var(--navy)' : '1px solid var(--border)',
+                borderRadius: 7,
+                background: format === fmt ? 'var(--bb)' : undefined,
+                cursor: 'pointer',
+                fontSize: 12,
+                fontWeight: format === fmt ? 600 : undefined,
+                color: format === fmt ? 'var(--bt)' : undefined,
+              }}
+            >
+              <input
+                type="radio"
+                name="mfmt"
+                checked={format === fmt}
+                onChange={() => setFormat(fmt)}
+                style={{ margin: 0 }}
+              />{' '}
+              {fmt.toUpperCase()}
+            </label>
+          ))}
         </div>
       </FormGroup>
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+        For downloads history and scheduling notes, open the{' '}
+        <button
+          type="button"
+          style={{ background: 'none', border: 'none', color: 'var(--bt)', fontWeight: 600, cursor: 'pointer', padding: 0, font: 'inherit' }}
+          onClick={() => {
+            onClose();
+            navigateTo('/reports');
+          }}
+        >
+          Reports page
+        </button>
+        .
+      </div>
       <ModalFooter>
         <Button variant="secondary" onClick={onClose}>
           Cancel

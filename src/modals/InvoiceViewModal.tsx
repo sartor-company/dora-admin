@@ -99,10 +99,15 @@ export function InvoiceViewModal({ open, invoice, onClose }: Props) {
       <ModalFooter>
         <Button
           variant="secondary"
-          onClick={() => {
+          onClick={async () => {
             if (!invoice) return;
-            downloadInvoicePdf(invoice, companyName);
-            showToast(`Invoice ${invoice.invoiceId} PDF downloaded.`, 'success');
+            try {
+              const details = await billingApi.paymentDetails().catch(() => undefined);
+              downloadInvoicePdf(invoice, companyName, details);
+              showToast(`Invoice ${invoice.invoiceId} PDF downloaded.`, 'success');
+            } catch (e) {
+              showToast(e instanceof Error ? e.message : 'Could not download invoice PDF.', 'error');
+            }
           }}
         >
           ↓ Download PDF

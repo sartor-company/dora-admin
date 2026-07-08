@@ -52,7 +52,10 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       },
       {
         title: 'Account',
-        items: [{ label: 'Settings', icon: 'settings', path: '/owner/settings' }],
+        items: [
+          { label: 'Invoices', icon: 'chart2', path: '/invoices' },
+          { label: 'Settings', icon: 'settings', path: '/owner/settings' },
+        ],
       },
     ],
   },
@@ -91,7 +94,10 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       },
       {
         title: 'Account',
-        items: [{ label: 'Settings', icon: 'settings', path: '/batch/settings' }],
+        items: [
+          { label: 'Invoices', icon: 'chart2', path: '/invoices' },
+          { label: 'Settings', icon: 'settings', path: '/batch/settings' },
+        ],
       },
     ],
   },
@@ -126,7 +132,10 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       },
       {
         title: 'Account',
-        items: [{ label: 'Settings', icon: 'settings', path: '/brand/settings' }],
+        items: [
+          { label: 'Invoices', icon: 'chart2', path: '/invoices' },
+          { label: 'Settings', icon: 'settings', path: '/brand/settings' },
+        ],
       },
     ],
   },

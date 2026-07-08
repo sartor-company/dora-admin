@@ -13,6 +13,7 @@ export interface ApiStickerOrder {
   stageLabel: string;
   pinStatus: string;
   qrStatus: string;
+  deliveryStatus?: string;
   trackingNumber?: string;
   courier?: string;
   activatedAt?: number;

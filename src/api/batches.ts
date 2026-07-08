@@ -29,6 +29,7 @@ export const batchesApi = {
       supplyPrice?: number | null;
       manufactureDate?: number | null;
       snMode?: 'upload' | 'auto';
+      serialNumbers?: string[];
       pinFormat?: string;
       unitsPerCarton?: number;
       cartonQrEnabled?: boolean;

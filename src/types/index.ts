@@ -71,4 +71,5 @@ export type ModalId =
   | 'activate-sticker-batch'
   | 'payment-gateway'
   | 'invoice-view'
-  | 'add-sku-licences';
+  | 'add-sku-licences'
+  | 'sticker-track';

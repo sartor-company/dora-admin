@@ -10,6 +10,33 @@ export interface PlatformInvoice {
   dueAt?: number;
   paidAt?: number;
   creationDateTime?: number;
+  creditType?: 'sms' | 'pin' | 'batch' | 'sku';
+  creditQuantity?: number;
+}
+
+export interface CreditBundle {
+  id: string;
+  title: string;
+  quantity: number;
+  amount: number;
+  unitPrice?: number;
+  blurb: string;
+}
+
+export interface BillingBankAccount {
+  currency: string;
+  bank: string;
+  accountName: string;
+  accountNumber: string;
+  status?: string;
+}
+
+export interface BillingPaymentDetails {
+  companyName: string;
+  companyAddress?: string;
+  companyEmail?: string;
+  companyPhone?: string;
+  bankAccounts: BillingBankAccount[];
 }
 
 export const billingApi = {
@@ -17,6 +44,11 @@ export const billingApi = {
     const res = await apiClient.get('/billing/invoices');
     const data = unwrap<{ data: PlatformInvoice[] }>(res);
     return data.data ?? [];
+  },
+
+  paymentDetails: async () => {
+    const res = await apiClient.get('/billing/payment-details');
+    return unwrap<BillingPaymentDetails>(res);
   },
 
   initializePayment: async (id: string, email?: string) => {
@@ -27,6 +59,7 @@ export const billingApi = {
   creditPackages: async () => {
     const res = await apiClient.get('/billing/credit-packages');
     return unwrap<{
+      bundles?: Record<'pin' | 'sms' | 'batch', CreditBundle[]>;
       packages: Record<
         string,
         { label: string; unit: string; pricePerUnit: number; min: number; step: number }
@@ -34,9 +67,14 @@ export const billingApi = {
     }>(res);
   },
 
-  requestCreditInvoice: async (type: 'sms' | 'pin' | 'batch', quantity: number) => {
-    const res = await apiClient.post('/billing/credit-invoice', { type, quantity });
+  requestCreditInvoice: async (
+    type: 'sms' | 'pin' | 'batch',
+    quantity: number,
+    bundleId?: string,
+  ) => {
+    const res = await apiClient.post('/billing/credit-invoice', { type, quantity, bundleId });
     return unwrap<{
+      _id?: string;
       invoiceId: string;
       amount: number;
       status: string;

@@ -68,9 +68,13 @@ export function LoginPage() {
         <div className="login-hero-overlay" />
         <div className="login-hero-content">
           <div className="login-hero-brand">
-            <div className="login-hero-mark smark" aria-hidden>
-              SC
-            </div>
+            <img
+              className="login-hero-mark brand-logo"
+              src="/sartor-logo.jpg"
+              alt="Sartor Health logo"
+              width={36}
+              height={36}
+            />
             <span>Sartor-Chain &amp; DORA AI</span>
           </div>
           <h1 className="login-hero-title">
@@ -92,9 +96,13 @@ export function LoginPage() {
 
       <main className="login-panel">
         <div className="login-mobile-brand">
-          <div className="login-hero-mark smark" aria-hidden>
-            SC
-          </div>
+          <img
+            className="login-hero-mark brand-logo"
+            src="/sartor-logo.jpg"
+            alt="Sartor Health logo"
+            width={36}
+            height={36}
+          />
           <span>Sartor-Chain · DORASCAN Client Admin</span>
         </div>
 

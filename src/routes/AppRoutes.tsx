@@ -23,6 +23,7 @@ import { InvDetailPage } from '../pages/investigations/InvDetailPage';
 import { InvQueuePage } from '../pages/investigations/InvQueuePage';
 import { InvSettingsPage } from '../pages/investigations/InvSettingsPage';
 import { NotificationsPage } from '../pages/NotificationsPage';
+import { InvoicesPage } from '../pages/InvoicesPage';
 import { OwnerDashboardPage } from '../pages/owner/OwnerDashboardPage';
 import { OwnerSettingsPage } from '../pages/owner/OwnerSettingsPage';
 import { ProductDetailPage } from '../pages/products/ProductDetailPage';
@@ -68,6 +69,7 @@ export function AppRoutes() {
           <Route path="gifts/detail" element={<GiftsDetailPage />} />
           <Route path="gifts/analytics" element={<GiftsAnalyticsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="invoices" element={<InvoicesPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="*" element={<Navigate to="/owner/dashboard" replace />} />
         </Route>

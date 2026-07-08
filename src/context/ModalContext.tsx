@@ -52,8 +52,13 @@ export interface ActivateStickerBatchPayload {
   id: string;
   ref: string;
   product: string;
+  productId?: string;
   planned: number;
   printed: number;
+}
+
+export interface BuyCreditsPayload {
+  tab?: 'pin' | 'sms' | 'cal' | 'batch';
 }
 
 export interface PaymentGatewayPayload {
@@ -84,6 +89,15 @@ export interface InvoiceViewPayload {
   creationDateTime?: number;
 }
 
+export interface StickerTrackPayload {
+  ref: string;
+  product: string;
+  status: string;
+  tracking?: string;
+  ordered?: string;
+  printed?: number;
+}
+
 export type ModalPayload =
   | FlagBatchPayload
   | BatchActionPayload
@@ -92,8 +106,10 @@ export type ModalPayload =
   | ProductModalPayload
   | EditMemberPayload
   | ActivateStickerBatchPayload
+  | BuyCreditsPayload
   | PaymentGatewayPayload
   | InvoiceViewPayload
+  | StickerTrackPayload
   | InvestigationActionPayload
   | CampaignActionPayload;
 

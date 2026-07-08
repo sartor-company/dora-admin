@@ -23,13 +23,14 @@ import { EditMemberModal } from './EditMemberModal';
 import { BatchDownloadModal, BatchPauseModal } from './BatchActionModals';
 import { ClearFalsePositiveModal, EvidenceBundleModal } from './InvestigationActionModals';
 import { ReportsModal } from './ReportsModal';
-import type { BatchActionPayload, EditMemberPayload, ActivateStickerBatchPayload, PaymentGatewayPayload } from '../context/ModalContext';
+import type { BatchActionPayload, EditMemberPayload, ActivateStickerBatchPayload, PaymentGatewayPayload, StickerTrackPayload } from '../context/ModalContext';
 import { PlaceStickerOrderModal } from './PlaceStickerOrderModal';
 import { ActivateStickerBatchModal } from './ActivateStickerBatchModal';
 import { DomainUpgradeModal } from './DomainUpgradeModal';
 import { PaymentGatewayModal } from './PaymentGatewayModal';
 import { InvoiceViewModal } from './InvoiceViewModal';
 import { AddSkuLicencesModal } from './AddSkuLicencesModal';
+import { StickerTrackModal } from './StickerTrackModal';
 import type { InvoiceViewPayload } from '../context/ModalContext';
 
 export function ModalsRoot() {
@@ -100,10 +101,8 @@ export function ModalsRoot() {
       <BuyCreditsModal
         open={isOpen('buy-credits')}
         onClose={close('buy-credits')}
-        onSuccess={async (invoiceId) => {
-          closeModal('buy-credits');
+        onSuccess={async () => {
           await refreshInvoices();
-          showToast(`Invoice ${invoiceId} created. Pay from Settings or contact sales@sartor.ng.`, 'success');
         }}
       />
 
@@ -185,6 +184,12 @@ export function ModalsRoot() {
       />
 
       <AddSkuLicencesModal open={isOpen('add-sku-licences')} onClose={close('add-sku-licences')} />
+
+      <StickerTrackModal
+        open={isOpen('sticker-track')}
+        payload={getPayload<StickerTrackPayload>('sticker-track')}
+        onClose={close('sticker-track')}
+      />
 
       <CampaignWizardModal
         open={isOpen('create-campaign')}

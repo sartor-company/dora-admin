@@ -25,17 +25,6 @@ type BatchDetail = ApiBatch & {
   product?: ApiProduct | string;
 };
 
-function deliveryKpis(cartonCount: number) {
-  if (cartonCount <= 0) {
-    return { despatched: 0, delivered: 0, inTransit: 0, pending: 0 };
-  }
-  const despatched = cartonCount;
-  const delivered = Math.min(despatched, Math.floor(despatched * 0.72));
-  const inTransit = Math.min(despatched - delivered, Math.max(1, Math.ceil(despatched * 0.2)));
-  const pending = Math.max(0, despatched - delivered - inTransit);
-  return { despatched, delivered, inTransit, pending };
-}
-
 export function BatchDetailPage() {
   const [searchParams] = useSearchParams();
   const batchId = searchParams.get('id') || '';
@@ -98,7 +87,6 @@ export function BatchDetailPage() {
   const verifyUrl = consumerVerifyUrl(clientCode);
   const unitsPerCarton = 24;
   const cartonCount = batch?.quantity ? Math.ceil(batch.quantity / unitsPerCarton) : 0;
-  const delivery = deliveryKpis(cartonCount);
   const statusLabel = (batch?.status || 'active').replace(/^\w/, (c) => c.toUpperCase());
   const totalScans = batchAnalytics?.scans ?? 0;
   const auths = batchAnalytics?.auths ?? 0;
@@ -308,46 +296,23 @@ export function BatchDetailPage() {
               <InfoGrid cols={3}>
                 <InfoCell label="Batch" value={batch.batchNumber} mono />
                 <InfoCell label="Units per carton" value={`${unitsPerCarton} units`} />
-                <InfoCell label="Total cartons" value={`${cartonCount} cartons`} />
+                <InfoCell label="Est. total cartons" value={`${cartonCount} cartons`} />
               </InfoGrid>
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(4, 1fr)',
-                  gap: 8,
+                  padding: 12,
+                  background: 'var(--bb)',
+                  borderRadius: 7,
                   fontSize: 12,
+                  color: 'var(--bt)',
                   margin: '11px 0 10px',
+                  lineHeight: 1.55,
                 }}
               >
-                {[
-                  { label: 'Despatched', value: delivery.despatched, bg: 'var(--bg)', color: 'inherit' },
-                  { label: 'Delivered', value: delivery.delivered, bg: 'var(--gb)', color: 'var(--gt)' },
-                  { label: 'In Transit', value: delivery.inTransit, bg: 'var(--ab)', color: 'var(--at)' },
-                  { label: 'Pending', value: delivery.pending, bg: 'var(--bg)', color: 'inherit' },
-                ].map((kpi) => (
-                  <div
-                    key={kpi.label}
-                    style={{
-                      padding: 8,
-                      background: kpi.bg,
-                      borderRadius: 6,
-                      textAlign: 'center',
-                    }}
-                  >
-                    <div style={{ fontSize: 10, color: kpi.color === 'inherit' ? 'var(--text3)' : kpi.color, marginBottom: 3 }}>
-                      {kpi.label}
-                    </div>
-                    <div
-                      style={{
-                        fontWeight: 700,
-                        fontFamily: "'DM Mono', monospace",
-                        color: kpi.color,
-                      }}
-                    >
-                      {kpi.value}
-                    </div>
-                  </div>
-                ))}
+                Carton delivery status (despatched / in transit / delivered) is tracked in{' '}
+                <strong>Sartor CRM</strong>
+                {crmEnabled ? '' : ' when CRM is enabled for your account'}. This console shows batch
+                authentication metrics above — not fabricated logistics percentages.
               </div>
               <div style={{ fontSize: 11, color: 'var(--text3)' }}>
                 Retailers confirm delivery by scanning this QR code or entering the SMS delivery code. Full delivery
