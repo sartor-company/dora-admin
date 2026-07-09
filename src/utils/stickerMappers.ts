@@ -29,14 +29,17 @@ export function mapStickerOrder(o: ApiStickerOrder): StickerOrderRow {
       ? `${o.courier || 'Courier'} · ${o.trackingNumber}`
       : undefined;
 
-  let pinStatus: StickerOrderRow['pinStatus'] = 'DORMANT';
-  if (o.activatedAt) pinStatus = 'ACTIVE';
-  else if (o.pinStatus === 'complete') pinStatus = 'DORMANT';
+  let pinStatus: StickerOrderRow['pinStatus'];
+  if (o.activatedAt) {
+    pinStatus = 'Activated';
+  } else {
+    pinStatus = 'Reserved';
+  }
 
   return {
     id: o._id,
     ref: o.orderId,
-    product: o.sku ? `${o.productName} (${o.sku})` : o.productName,
+    product: o.productName,
     productId: o.productId,
     planned: o.qtyOrdered,
     printed: o.qtyWithOverage,

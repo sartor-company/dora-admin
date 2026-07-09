@@ -49,6 +49,7 @@ export function StickerOrdersPage() {
   const pinReserved = stickerOrders
     .filter((r) => r.status !== 'Activated')
     .reduce((sum, r) => sum + r.pins, 0);
+  const pinPoolTotal = pinCredits + pinReserved;
   const netAvailable = Math.max(pinCredits - pinReserved, 0);
 
   const filtered = useMemo(() => {
@@ -67,6 +68,10 @@ export function StickerOrdersPage() {
   const awaiting = stickerSummary?.awaitingDelivery ?? stickerOrders.filter((r) => r.status === 'Dispatched').length;
   const ready = stickerSummary?.readyToActivate ?? stickerOrders.filter((r) => r.status === 'Delivered').length;
   const unitsEnrolled = stickerSummary?.unitsEnrolled ?? 0;
+  const dispatchedRef = stickerOrders.find((r) => r.status === 'Dispatched')?.ref;
+  const deliveredRef = stickerOrders.find((r) => r.status === 'Delivered')?.ref;
+  const enrolledBatch =
+    stickerOrders.find((r) => r.status === 'Activated' && r.batch)?.batch ?? 'activated batches';
 
   const openActivate = (row: StickerOrderRow) => {
     if (!row.id) return;
@@ -100,8 +105,10 @@ export function StickerOrdersPage() {
             <div className="credit-val">{pinCredits.toLocaleString()}</div>
             <div className="credit-sub">
               {pinReserved > 0
-                ? `${pinReserved.toLocaleString()} reserved on open orders`
-                : 'No credits reserved'}
+                ? `of ${pinPoolTotal.toLocaleString()} · ${pinReserved.toLocaleString()} reserved`
+                : pinPoolTotal > pinCredits
+                  ? `of ${pinPoolTotal.toLocaleString()}`
+                  : 'No credits reserved'}
             </div>
           </div>
           <div className="credit-divider" />
@@ -141,18 +148,21 @@ export function StickerOrdersPage() {
         <KCard
           label="Awaiting Delivery"
           value={String(awaiting)}
-          trend={awaiting ? `${awaiting} in transit` : 'None in transit'}
+          accent
+          valueColor="var(--amber)"
+          trend={dispatchedRef ? `${dispatchedRef} in transit` : awaiting ? 'In transit' : 'None in transit'}
         />
         <KCard
           label="Ready to Activate"
           value={String(ready)}
-          trend={ready ? `${ready} delivered` : 'None ready'}
+          trend={deliveredRef ? `${deliveredRef} delivered` : ready ? 'Delivered' : 'None ready'}
           trendType={ready ? 'up' : 'neu'}
+          valueColor={ready ? 'var(--green)' : undefined}
         />
         <KCard
           label="Units Enrolled"
           value={unitsEnrolled.toLocaleString()}
-          trend={unitsEnrolled > 0 ? 'Activated batches' : 'None yet'}
+          trend={unitsEnrolled > 0 ? `↑ via ${enrolledBatch}` : 'None yet'}
           trendType={unitsEnrolled > 0 ? 'up' : 'neu'}
         />
       </KCardGrid>
@@ -174,12 +184,11 @@ export function StickerOrdersPage() {
                 style={{ maxWidth: 130 }}
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
+                aria-label="Filter by status"
               >
                 <option value="">All statuses</option>
-                <option>Planned</option>
-                <option>In Production</option>
-                <option>Dispatched</option>
                 <option>Delivered</option>
+                <option>Dispatched</option>
                 <option>Activated</option>
               </select>
             </div>
@@ -198,7 +207,7 @@ export function StickerOrdersPage() {
           </div>
         ) : (
           <TableWrap minWidth={900}>
-            <table style={{ fontSize: 12 }}>
+            <table className="resp" style={{ fontSize: 12 }}>
               <thead>
                 <tr>
                   <th>Order Ref</th>
@@ -214,31 +223,41 @@ export function StickerOrdersPage() {
               <tbody>
                 {filtered.map((row) => (
                   <tr key={row.id || row.ref}>
-                    <td data-label="Order Ref">
-                      <strong>{row.ref}</strong>
+                    <td
+                      data-label="Order Ref"
+                      style={{ fontFamily: "'DM Mono', monospace", fontWeight: 600 }}
+                    >
+                      {row.ref}
                     </td>
                     <td data-label="Product">{row.product}</td>
-                    <td data-label="Planned">{row.planned.toLocaleString()}</td>
-                    <td data-label="Printed">{row.printed.toLocaleString()}</td>
-                    <td data-label="PIN Credits">
+                    <td
+                      data-label="Planned"
+                      style={{ fontFamily: "'DM Mono', monospace" }}
+                    >
+                      {row.planned.toLocaleString()}
+                    </td>
+                    <td
+                      data-label="Printed (+10%)"
+                      style={{ fontFamily: "'DM Mono', monospace" }}
+                    >
+                      {row.printed.toLocaleString()}
+                    </td>
+                    <td
+                      data-label="PIN Credits"
+                      style={{ fontFamily: "'DM Mono', monospace" }}
+                    >
                       {row.pins.toLocaleString()}{' '}
-                      <span style={{ fontSize: 10, color: row.pinStatus === 'ACTIVE' ? 'var(--gt)' : 'var(--text3)' }}>
-                        {row.pinStatus}
+                      <span style={{ fontSize: 10, color: 'var(--text3)' }}>
+                        ({row.pinStatus})
                       </span>
                     </td>
                     <td data-label="Ordered">{row.ordered}</td>
                     <td data-label="Status">
                       <Badge variant={STATUS_VARIANT[row.status]}>{row.status}</Badge>
-                      {row.tracking && (
-                        <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{row.tracking}</div>
-                      )}
-                      {row.batch && (
-                        <div style={{ fontSize: 10, color: 'var(--gt)', marginTop: 2 }}>{row.batch}</div>
-                      )}
                     </td>
                     <td data-label="Action">
                       {row.status === 'Delivered' && !isReadOnly && (
-                        <Button variant="accent" size="sm" onClick={() => openActivate(row)}>
+                        <Button size="sm" onClick={() => openActivate(row)}>
                           Activate Batch →
                         </Button>
                       )}
@@ -303,7 +322,8 @@ export function StickerOrdersPage() {
         ℹ <strong>How it works:</strong> Place your order before your production run. Sartor generates your PINs
         immediately (DORMANT until activation) and dispatches stickers to your facility. After your run, click{' '}
         <em>Activate Batch</em>, enter actual units applied and upload 1–2 reference photos — DORA verification goes
-        live in under 15 minutes. A 10% overage is automatically added to every order.
+        live in under 15 minutes. A 10% overage is automatically added to every order. Unused stickers at activation
+        release credits back to your balance instantly.
       </div>
     </>
   );

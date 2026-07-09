@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { analyticsApi } from '../../api/analytics';
 import { batchesApi } from '../../api/batches';
-import { LineChartCard } from '../../components/charts/LineChartCard';
 import { Badge } from '../../components/ui/Badge';
 import { BackLink } from '../../components/ui/BackLink';
 import { Button } from '../../components/ui/Button';
@@ -18,7 +17,7 @@ import type { BatchAnalytics } from '../../types/analytics';
 import { consumerVerifyUrl, DORASCAN_VERIFY_BASE } from '../../constants/dorascan';
 import { useAuthStore } from '../../store/authStore';
 import { useToast } from '../../context/ToastContext';
-import { formatApiDate, formatPercent, scanTrendChart } from '../../utils/mappers';
+import { formatApiDate, formatPercent } from '../../utils/mappers';
 
 type BatchDetail = ApiBatch & {
   labels?: unknown[];
@@ -28,7 +27,7 @@ type BatchDetail = ApiBatch & {
 export function BatchDetailPage() {
   const [searchParams] = useSearchParams();
   const batchId = searchParams.get('id') || '';
-  const { navigateTo, crmEnabled, verifyDomain, isReadOnly } = useApp();
+  const { navigateTo, isReadOnly } = useApp();
   const clientCode = useAuthStore((s) => s.user?.clientCode);
   const { setDoraUploadTarget } = useTenantData();
   const { openModal } = useModal();
@@ -85,9 +84,16 @@ export function BatchDetailPage() {
   const productId = product?._id || (typeof batch?.product === 'string' ? batch.product : '');
   const hasDoraImages = Boolean(batch?.image);
   const verifyUrl = consumerVerifyUrl(clientCode);
-  const unitsPerCarton = 24;
+  const unitsPerCarton = batch?.unitsPerCarton ?? 24;
   const cartonCount = batch?.quantity ? Math.ceil(batch.quantity / unitsPerCarton) : 0;
-  const statusLabel = (batch?.status || 'active').replace(/^\w/, (c) => c.toUpperCase());
+  const statusLabel =
+    batch?.status === 'recalled'
+      ? 'Closed'
+      : batch?.status === 'paused'
+        ? 'Paused'
+        : hasDoraImages
+          ? 'Active'
+          : 'Pending Model';
   const totalScans = batchAnalytics?.scans ?? 0;
   const auths = batchAnalytics?.auths ?? 0;
   const authRate = batchAnalytics?.authRate;
@@ -121,15 +127,13 @@ export function BatchDetailPage() {
       <BackLink onClick={() => navigateTo('/batches')}>← Back to Batches</BackLink>
 
       <div className="int-banners">
-        {crmEnabled && (
-          <IntegrationBanner
-            variant="crm"
-            label="Sartor CRM"
-            description="Full delivery tracking, LPO management and rep confirmations live here"
-            href="https://crm.sartor.ng"
-            linkText="Open CRM ↗"
-          />
-        )}
+        <IntegrationBanner
+          variant="crm"
+          label="Sartor CRM"
+          description="Full delivery tracking, LPO management and rep confirmations live here"
+          href="https://crm.sartor.ng"
+          linkText="Open CRM ↗"
+        />
         <IntegrationBanner
           variant="dora"
           label="DORA AI"
@@ -159,7 +163,7 @@ export function BatchDetailPage() {
                   })
                 }
               >
-                ⏸ Pause
+                ▌▌ Pause
               </Button>
               <Button
                 variant="danger"
@@ -190,9 +194,6 @@ export function BatchDetailPage() {
               </Button>
             </>
           )}
-          <Button variant="secondary" size="sm" onClick={openDora}>
-            {hasDoraImages ? 'Retrain DORA' : 'Upload DORA Images'}
-          </Button>
         </div>
       </div>
 
@@ -209,16 +210,6 @@ export function BatchDetailPage() {
         ]}
       />
 
-      {batchAnalytics && (
-        <div className="r2" style={{ marginBottom: 14 }}>
-          <LineChartCard
-            title={`Scan trend — ${batch.batchNumber}`}
-            labels={scanTrendChart(batchAnalytics.scanTrend).labels}
-            data={scanTrendChart(batchAnalytics.scanTrend).data}
-          />
-        </div>
-      )}
-
       <div className="r2">
         <Card>
           <div className="ct" style={{ marginBottom: 12 }}>
@@ -226,7 +217,7 @@ export function BatchDetailPage() {
           </div>
           <InfoGrid cols={3}>
             <InfoCell label="Product" value={productName} />
-            <InfoCell label="Manufacture Date" value={formatApiDate(batch.creationDateTime)} />
+            <InfoCell label="Manufacture Date" value={formatApiDate(batch.manufactureDate ?? batch.creationDateTime)} />
             <InfoCell label="Expiry Date" value={formatApiDate(batch.expiryDate)} />
             <InfoCell label="Serial Numbers" value="Auto-generated" />
             <InfoCell label="PIN Format" value="10-digit alphanumeric" />
@@ -251,16 +242,14 @@ export function BatchDetailPage() {
               >
                 {downloading === 'carton-qr' ? 'Downloading…' : '↓ Download Carton Label'}
               </Button>
-              {crmEnabled && (
-                <a
-                  href="https://crm.sartor.ng"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn bpri bsm"
-                >
-                  View in Sartor CRM ↗
-                </a>
-              )}
+              <a
+                href="https://crm.sartor.ng"
+                target="_blank"
+                rel="noreferrer"
+                className="btn bpri bsm"
+              >
+                View in Sartor CRM ↗
+              </a>
             </div>
           </div>
           <div
@@ -296,23 +285,46 @@ export function BatchDetailPage() {
               <InfoGrid cols={3}>
                 <InfoCell label="Batch" value={batch.batchNumber} mono />
                 <InfoCell label="Units per carton" value={`${unitsPerCarton} units`} />
-                <InfoCell label="Est. total cartons" value={`${cartonCount} cartons`} />
+                <InfoCell label="Total cartons" value={`${cartonCount} cartons`} />
               </InfoGrid>
               <div
                 style={{
-                  padding: 12,
-                  background: 'var(--bb)',
-                  borderRadius: 7,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(4, 1fr)',
+                  gap: 8,
                   fontSize: 12,
-                  color: 'var(--bt)',
                   margin: '11px 0 10px',
-                  lineHeight: 1.55,
                 }}
               >
-                Carton delivery status (despatched / in transit / delivered) is tracked in{' '}
-                <strong>Sartor CRM</strong>
-                {crmEnabled ? '' : ' when CRM is enabled for your account'}. This console shows batch
-                authentication metrics above — not fabricated logistics percentages.
+                {(
+                  [
+                    { label: 'Despatched', value: '—', bg: 'var(--bg)', color: 'var(--text3)' },
+                    { label: 'Delivered', value: '—', bg: 'var(--gb)', color: 'var(--gt)' },
+                    { label: 'In Transit', value: '—', bg: 'var(--ab)', color: 'var(--at)' },
+                    { label: 'Pending', value: '—', bg: 'var(--bg)', color: 'var(--text3)' },
+                  ] as const
+                ).map((cell) => (
+                  <div
+                    key={cell.label}
+                    style={{
+                      padding: 8,
+                      background: cell.bg,
+                      borderRadius: 6,
+                      textAlign: 'center',
+                    }}
+                  >
+                    <div style={{ fontSize: 10, color: cell.color, marginBottom: 3 }}>{cell.label}</div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontFamily: "'DM Mono', monospace",
+                        color: cell.color,
+                      }}
+                    >
+                      {cell.value}
+                    </div>
+                  </div>
+                ))}
               </div>
               <div style={{ fontSize: 11, color: 'var(--text3)' }}>
                 Retailers confirm delivery by scanning this QR code or entering the SMS delivery code. Full delivery
@@ -416,19 +428,6 @@ export function BatchDetailPage() {
               </a>
             </div>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 10 }}>
-            Verification domain: {verifyDomain}
-          </div>
-          {productId && (
-            <Button
-              variant="secondary"
-              size="sm"
-              style={{ marginBottom: 8 }}
-              onClick={() => navigateTo(`/products/detail?id=${productId}`)}
-            >
-              View Product
-            </Button>
-          )}
           <Button variant="secondary" size="sm" onClick={openDora}>
             {hasDoraImages ? 'Retrain DORA Model' : 'Upload DORA Images'}
           </Button>

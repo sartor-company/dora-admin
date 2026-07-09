@@ -8,7 +8,7 @@ export interface StickerOrderRow {
   planned: number;
   printed: number;
   pins: number;
-  pinStatus: 'DORMANT' | 'ACTIVE';
+  pinStatus: 'Reserved' | 'Activated';
   ordered: string;
   status: StickerOrderStatus;
   tracking?: string;
@@ -23,7 +23,7 @@ export const DEMO_STICKER_ORDERS: StickerOrderRow[] = [
     planned: 1820,
     printed: 2002,
     pins: 2002,
-    pinStatus: 'DORMANT',
+    pinStatus: 'Reserved',
     ordered: 'Mar 12, 2026',
     status: 'Delivered',
   },
@@ -33,7 +33,7 @@ export const DEMO_STICKER_ORDERS: StickerOrderRow[] = [
     planned: 500,
     printed: 550,
     pins: 550,
-    pinStatus: 'DORMANT',
+    pinStatus: 'Reserved',
     ordered: 'Mar 20, 2026',
     status: 'Dispatched',
     tracking: 'DHL · NG7829104562',
@@ -44,7 +44,7 @@ export const DEMO_STICKER_ORDERS: StickerOrderRow[] = [
     planned: 400,
     printed: 440,
     pins: 440,
-    pinStatus: 'ACTIVE',
+    pinStatus: 'Activated',
     ordered: 'Feb 8, 2026',
     status: 'Activated',
     batch: 'BATCH-038',

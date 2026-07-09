@@ -20,8 +20,13 @@ export interface ApiBatch {
   manufacturer?: string;
   invoiceNumber?: string;
   image?: string;
+  backImage?: string;
+  doraStatus?: 'pending' | 'training' | 'ready';
   quantity: number;
   expiryDate?: number;
+  manufactureDate?: number;
+  unitsPerCarton?: number;
+  pinFormat?: string;
   status?: string;
   product?: ApiProduct | string;
   supplier?: { _id: string; name?: string } | string;

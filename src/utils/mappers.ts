@@ -10,8 +10,17 @@ export function formatApiDate(ts?: number): string {
   });
 }
 
+export function formatApiDateShort(ts?: number): string {
+  if (!ts) return '—';
+  return new Date(ts).toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
 export function productDisplayRow(p: ApiProduct, stats?: { scans: number; authRate: number | null }) {
   const batchCount = p.batches?.length ?? 0;
+  const hasTrainedBatch = batchCount > 0 && Boolean(p.productImage);
   return {
     id: p._id,
     name: p.productName,
@@ -26,11 +35,55 @@ export function productDisplayRow(p: ApiProduct, stats?: { scans: number; authRa
         : stats?.authRate != null && stats.authRate < 95
           ? 'var(--at)'
           : 'var(--gt)',
-    doraStatus: batchCount > 0 ? 'Active' : 'Pending',
-    doraVariant: (batchCount > 0 ? 'bg' : 'ba') as BadgeVariant,
-    codeType: p.barcodeNumber ? 'GS1' : 'Sartor',
+    doraStatus: hasTrainedBatch ? 'Active' : batchCount > 0 ? 'Pending' : 'Pending',
+    doraVariant: (hasTrainedBatch ? 'bg' : 'ba') as BadgeVariant,
+    codeType: p.barcodeNumber ? 'GS1' : 'SC Code',
     raw: p,
   };
+}
+
+function resolveDoraState(b: ApiBatch) {
+  const hasImage = Boolean(b.image);
+  const status = b.doraStatus || (hasImage ? 'ready' : 'pending');
+
+  if (status === 'training') {
+    return {
+      dora: 'Training',
+      doraVariant: 'bp' as BadgeVariant,
+      needsUpload: false,
+      canView: true,
+    };
+  }
+  if (status === 'ready' || hasImage) {
+    return {
+      dora: 'Ready',
+      doraVariant: 'bg' as BadgeVariant,
+      needsUpload: false,
+      canView: true,
+    };
+  }
+  return {
+    dora: '⚠ Upload images',
+    doraVariant: 'ba' as BadgeVariant,
+    needsUpload: true,
+    canView: false,
+  };
+}
+
+function resolveBatchStatus(b: ApiBatch, doraState: ReturnType<typeof resolveDoraState>) {
+  if (b.status === 'paused') {
+    return { status: 'Paused', statusVariant: 'bx' as BadgeVariant };
+  }
+  if (b.status === 'recalled') {
+    return { status: 'Closed', statusVariant: 'bx' as BadgeVariant };
+  }
+  if (doraState.dora === 'Training') {
+    return { status: 'Training', statusVariant: 'bp' as BadgeVariant };
+  }
+  if (doraState.needsUpload) {
+    return { status: 'Pending Model', statusVariant: 'ba' as BadgeVariant };
+  }
+  return { status: 'Active', statusVariant: 'bg' as BadgeVariant };
 }
 
 export function batchDisplayRow(
@@ -41,25 +94,49 @@ export function batchDisplayRow(
     typeof b.product === 'object' && b.product ? b.product.productName : '—';
   const productId =
     typeof b.product === 'object' && b.product ? b.product._id : (b.product as string);
-  const hasImage = Boolean(b.image);
-  const status = (b.status || 'active').replace(/^\w/, (c) => c.toUpperCase());
+
+  const doraState = resolveDoraState(b);
+  const statusInfo = resolveBatchStatus(b, doraState);
+
+  const hasStats = stats && (stats.scans > 0 || stats.auths > 0);
+  let delivery = 'Not despatched';
+  let deliveryVariant: BadgeVariant = 'bx';
+  if (hasStats && stats!.auths > 0) {
+    delivery = 'In verification';
+    deliveryVariant = 'bg';
+  }
 
   return {
     id: b.batchNumber,
     _id: b._id,
     productId,
     product: productName,
-    created: formatApiDate(b.creationDateTime),
+    created: formatApiDateShort(b.creationDateTime),
     qty: b.quantity,
-    status,
-    statusVariant: (b.status === 'active' ? 'bg' : 'bx') as BadgeVariant,
-    auths: stats?.auths != null ? String(stats.auths) : '—',
-    scans: stats?.scans != null ? String(stats.scans) : '—',
-    delivery: stats?.scans != null && stats.scans > 0 ? 'Active' : '—',
-    deliveryVariant: (stats?.scans != null && stats.scans > 0 ? 'bg' : 'bx') as BadgeVariant,
-    dora: hasImage ? 'Uploaded' : 'Pending',
-    doraVariant: (hasImage ? 'bg' : 'ba') as BadgeVariant,
-    needsUpload: !hasImage,
+    status: statusInfo.status,
+    statusVariant: statusInfo.statusVariant,
+    auths: stats?.auths != null && stats.auths > 0 ? String(stats.auths) : '—',
+    scans: stats?.scans != null && stats.scans > 0 ? String(stats.scans) : '—',
+    delivery,
+    deliveryVariant,
+    dora: doraState.dora,
+    doraVariant: doraState.doraVariant,
+    needsUpload: doraState.needsUpload,
+    canView: doraState.canView,
+    authRate:
+      stats?.authRate != null
+        ? `${stats.authRate}%`
+        : stats && stats.scans > 0 && stats.auths > 0
+          ? `${Math.round((stats.auths / stats.scans) * 1000) / 10}%`
+          : '—',
+    authRateColor:
+      stats?.authRate != null && stats.authRate < 80
+        ? 'var(--rt)'
+        : stats?.authRate != null && stats.authRate < 95
+          ? 'var(--at)'
+          : stats && stats.scans > 0 && stats.auths > 0
+            ? 'var(--gt)'
+            : 'var(--text3)',
     raw: b,
   };
 }

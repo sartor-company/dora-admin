@@ -436,6 +436,10 @@ a.ni {
   padding: 14px 16px;
 }
 
+.kcard-accent {
+  border-top: 3px solid var(--amber);
+}
+
 .klbl {
   font-size: 10px;
   color: var(--text3);

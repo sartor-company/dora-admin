@@ -62,6 +62,37 @@ function parseCsvRow(line: string): string[] {
   return cols.map((v) => v.replace(/^"|"$/g, '').trim());
 }
 
+function normalizeSnHeader(h: string): string {
+  return h
+    .replace(/^\ufeff/, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^a-z0-9_/]/g, '');
+}
+
+function findSnColumnIndex(headers: string[]): number {
+  const normalized = headers.map(normalizeSnHeader);
+  return normalized.findIndex(
+    (h) =>
+      h === 'serial_number' ||
+      h === 'serialnumber' ||
+      h === 'serial' ||
+      h === 'sn' ||
+      h === 's/n' ||
+      h === 'serial_no' ||
+      h === 'serialno',
+  );
+}
+
+function splitManifestLine(line: string): string[] {
+  if (line.includes('\t')) return line.split('\t').map((v) => v.trim());
+  if (line.includes(';') && !line.includes(',')) {
+    return line.split(';').map((v) => v.trim());
+  }
+  return parseCsvRow(line);
+}
+
 async function parseSnManifest(file: File): Promise<string[]> {
   const text = await file.text();
   const lines = text
@@ -70,14 +101,29 @@ async function parseSnManifest(file: File): Promise<string[]> {
     .filter(Boolean);
   if (!lines.length) throw new Error('SN manifest is empty.');
 
-  const header = parseCsvRow(lines[0]).map((h) => h.toLowerCase());
-  const snIndex = header.findIndex((h) => h === 'serial_number' || h === 'serialnumber' || h === 'serial');
-  if (snIndex < 0) throw new Error("SN manifest must contain a 'serial_number' column.");
+  const rows = lines.map(splitManifestLine);
+  const header = rows[0].map((h) => h.replace(/^"|"$/g, '').trim());
+  let snIndex = findSnColumnIndex(header);
+  let dataRows = rows.slice(1);
 
-  const serials = lines
-    .slice(1)
-    .map((line) => parseCsvRow(line)[snIndex] || '')
-    .map((v) => v.trim())
+  // Single-column file with no header row — one serial per line
+  if (snIndex < 0 && rows[0].length === 1 && rows.length > 1) {
+    const first = rows[0][0];
+    const looksLikeHeader = /serial|sn|number|no\.?/i.test(first);
+    if (!looksLikeHeader) {
+      return rows.map((r) => r[0]?.trim()).filter(Boolean);
+    }
+  }
+
+  if (snIndex < 0) {
+    throw new Error(
+      "SN manifest must contain a 'serial_number' column (e.g. serial_number, Serial Number, or SN). Download the sample CSV for the correct format.",
+    );
+  }
+
+  const serials = dataRows
+    .map((cols) => cols[snIndex] || '')
+    .map((v) => v.replace(/^"|"$/g, '').trim())
     .filter(Boolean);
 
   if (!serials.length) throw new Error('SN manifest has no serial numbers.');
@@ -326,7 +372,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
               <ChoiceCard
                 selected={snMode === 'upload'}
                 title="📄 Upload SN Manifest"
-                description="CSV or Excel · Required column: serial_number"
+                description="CSV · Required column: serial_number (or Serial Number / SN)"
                 onClick={() => setSnMode('upload')}
               />
               <ChoiceCard
@@ -347,8 +393,8 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
                   color: 'var(--at)',
                 }}
               >
-                Upload CSV with required <strong>serial_number</strong> column. The number of rows must exactly match
-                the batch quantity.
+                Upload a <strong>CSV</strong> file with a <strong>serial_number</strong> column (Excel: Save As → CSV).
+                Row count must exactly match the batch quantity.
                 <div style={{ marginTop: 10 }}>
                   <input
                     type="file"

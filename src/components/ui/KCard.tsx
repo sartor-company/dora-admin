@@ -5,14 +5,18 @@ interface KCardProps {
   value: string;
   trend?: string;
   trendType?: Trend;
+  accent?: boolean;
+  valueColor?: string;
   style?: React.CSSProperties;
 }
 
-export function KCard({ label, value, trend, trendType = 'neu', style }: KCardProps) {
+export function KCard({ label, value, trend, trendType = 'neu', accent, valueColor, style }: KCardProps) {
   return (
-    <div className="kcard" style={style}>
+    <div className={accent ? 'kcard kcard-accent' : 'kcard'} style={style}>
       <div className="klbl">{label}</div>
-      <div className="kval">{value}</div>
+      <div className="kval" style={valueColor ? { color: valueColor } : undefined}>
+        {value}
+      </div>
       {trend && <div className={`ktrend ${trendType}`}>{trend}</div>}
     </div>
   );

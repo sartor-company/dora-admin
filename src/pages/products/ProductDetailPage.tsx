@@ -18,7 +18,7 @@ import { productLicencesApi, type ProductLicence } from '../../api/productLicenc
 import { formatLicenceDate, licenceStatus } from '../../data/productLicences';
 import { useToast } from '../../context/ToastContext';
 import { FormGroup } from '../../components/ui/FormGroup';
-import { batchDisplayRow, scanTrendChart } from '../../utils/mappers';
+import { batchDisplayRow, formatApiDate, scanTrendChart } from '../../utils/mappers';
 
 const LICENCE_AUTHORITIES = ['NAFDAC', 'SON', 'PCN', 'FDA (USA)', 'MHRA (UK)', 'CE Marking (EU)', 'Other'];
 
@@ -34,8 +34,8 @@ const TABS = [
 export function ProductDetailPage() {
   const [searchParams] = useSearchParams();
   const productId = searchParams.get('id') || '';
-  const { isReadOnly, navigateTo, verifyDomain, crmEnabled } = useApp();
-  const { setDoraUploadTarget, analytics } = useTenantData();
+  const { isReadOnly, navigateTo, verifyDomain } = useApp();
+  const { setDoraUploadTarget, analytics, investigationStats } = useTenantData();
   const { openModal } = useModal();
   const { showToast } = useToast();
   const { active, setActive } = useTabs<ProductTab>('batches');
@@ -133,6 +133,10 @@ export function ProductDetailPage() {
   );
 
   const trainedBatches = batchRows.filter((b) => !b.needsUpload);
+  const trainingBatches = batchRows.filter((b) => b.status === 'Training');
+  const activeBatchCount = batchRows.filter((b) => b.status === 'Active' || b.status === 'Training').length;
+  const productAnalytics = analytics?.topProducts?.find((p) => p.productId === productId);
+  const openInvestigations = investigationStats?.queue ?? analytics?.kpis.fraudAlerts ?? 0;
   const verifyUrl = product?.subdomain
     ? `https://${product.subdomain}.${verifyDomain.replace(/^https?:\/\//, '')}`
   : `https://${verifyDomain}`;
@@ -205,7 +209,7 @@ export function ProductDetailPage() {
             </div>
             <div className="pgsub">
               SKU: {product.batchId || product.barcodeNumber || '—'} · {product.manufacturer || '—'} ·{' '}
-              {batchRows.length} batch{batchRows.length !== 1 ? 'es' : ''}
+              {activeBatchCount} active batch{activeBatchCount !== 1 ? 'es' : ''}
             </div>
           </div>
         </div>
@@ -222,10 +226,30 @@ export function ProductDetailPage() {
       </div>
 
       <KCardGrid>
-        <KCard label="Total Quantity" value={String(product.totalQuantityAvailable ?? 0)} trend="Across all batches" trendType="neu" />
-        <KCard label="Active Batches" value={String(batchRows.length)} trend={`${trainedBatches.length} with DORA images`} trendType="neu" />
-        <KCard label="Subdomain" value={product.subdomain || '—'} trend="Consumer verify path" trendType="neu" />
-        <KCard label="CRM" value={crmEnabled ? 'Enabled' : 'Off'} trend={crmEnabled ? 'Open from sidebar' : 'Not on plan'} trendType="neu" />
+        <KCard
+          label="Total Scans"
+          value={(productAnalytics?.scans ?? 0).toLocaleString()}
+          trend={productAnalytics?.scans ? 'Last 30 days' : 'No scans yet'}
+          trendType={productAnalytics?.scans ? 'up' : 'neu'}
+        />
+        <KCard
+          label="Auth Rate"
+          value={productAnalytics?.authRate != null ? `${productAnalytics.authRate}%` : '—'}
+          trend={productAnalytics?.authRate != null ? 'Last 30 days' : 'No data yet'}
+          trendType={productAnalytics?.authRate != null ? 'up' : 'neu'}
+        />
+        <KCard
+          label="Active Batches"
+          value={String(activeBatchCount)}
+          trend={trainingBatches.length ? `${trainingBatches.length} in training` : `${trainedBatches.length} with DORA`}
+          trendType="neu"
+        />
+        <KCard
+          label="Open Investigations"
+          value={String(openInvestigations)}
+          trend={openInvestigations ? `${openInvestigations} in queue` : 'None open'}
+          trendType={openInvestigations ? 'dn' : 'neu'}
+        />
       </KCardGrid>
 
       <TabBar tabs={TABS} active={active} onChange={(id) => setActive(id as ProductTab)} />
@@ -243,14 +267,17 @@ export function ProductDetailPage() {
             {batchRows.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>No batches for this product yet.</div>
             ) : (
-              <TableWrap minWidth={720}>
-                <table>
+              <TableWrap minWidth={880}>
+                <table className="resp">
                   <thead>
                     <tr>
                       <th>Batch ID</th>
                       <th>Created</th>
                       <th>Qty</th>
                       <th>Status</th>
+                      <th>Delivery</th>
+                      <th>Auths</th>
+                      <th>Auth Rate</th>
                       <th>DORA</th>
                       <th></th>
                     </tr>
@@ -262,38 +289,43 @@ export function ProductDetailPage() {
                         className="cl"
                         onClick={() => navigateTo(`/batches/detail?id=${b._id}`)}
                       >
-                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{b.id}</td>
-                        <td>{b.created}</td>
-                        <td>{b.qty}</td>
-                        <td>
+                        <td
+                          data-label="Batch ID"
+                          style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}
+                        >
+                          {b.id}
+                        </td>
+                        <td data-label="Created">{formatApiDate(b.raw.creationDateTime)}</td>
+                        <td data-label="Qty">{b.qty}</td>
+                        <td data-label="Status">
                           <Badge variant={b.statusVariant}>{b.status}</Badge>
                         </td>
-                        <td>
+                        <td data-label="Delivery">
+                          <Badge variant={b.deliveryVariant} style={{ fontSize: 10 }}>
+                            {b.delivery}
+                          </Badge>
+                        </td>
+                        <td data-label="Auths">{b.auths}</td>
+                        <td
+                          data-label="Auth Rate"
+                          style={{ color: b.authRateColor, fontWeight: 600 }}
+                        >
+                          {b.authRate}
+                        </td>
+                        <td data-label="DORA">
                           <Badge variant={b.doraVariant}>{b.dora}</Badge>
                         </td>
-                        <td>
-                          {b.needsUpload && !isReadOnly ? (
-                            <Button
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openDoraForBatch(b);
-                              }}
-                            >
-                              Upload
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                navigateTo(`/batches/detail?id=${b._id}`);
-                              }}
-                            >
-                              View
-                            </Button>
-                          )}
+                        <td data-label="Actions">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigateTo(`/batches/detail?id=${b._id}`);
+                            }}
+                          >
+                            View
+                          </Button>
                         </td>
                       </tr>
                     ))}
