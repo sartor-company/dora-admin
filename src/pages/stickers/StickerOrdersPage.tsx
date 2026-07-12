@@ -256,9 +256,23 @@ export function StickerOrdersPage() {
                       <Badge variant={STATUS_VARIANT[row.status]}>{row.status}</Badge>
                     </td>
                     <td data-label="Action">
-                      {row.status === 'Delivered' && !isReadOnly && (
+                      {row.status === 'Delivered' && !isReadOnly && row.canLink && (
                         <Button size="sm" onClick={() => openActivate(row)}>
-                          Activate Batch →
+                          {row.linkStatus === 'partial' ? 'Add Batch →' : 'Link to Batch →'}
+                        </Button>
+                      )}
+                      {row.status === 'Delivered' && !isReadOnly && !row.canLink && (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          disabled
+                          title={
+                            (row.unlinkedPinCount ?? 0) <= 0
+                              ? 'No unlinked PINs on this order — ask Sartor to trigger/re-trigger PINs if needed'
+                              : 'Cannot link yet'
+                          }
+                        >
+                          {(row.unlinkedPinCount ?? 0) <= 0 ? 'Awaiting PINs' : 'Cannot Link'}
                         </Button>
                       )}
                       {row.status === 'Activated' && row.batch && (

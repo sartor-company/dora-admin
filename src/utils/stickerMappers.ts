@@ -8,7 +8,7 @@ import { formatApiDate } from './mappers';
  */
 export function mapStickerOrder(o: ApiStickerOrder): StickerOrderRow {
   let status: StickerOrderRow['status'];
-  if (o.activatedAt) {
+  if (o.linkStatus === 'complete' || o.activatedAt) {
     status = 'Activated';
   } else if (o.stage === 'delivered' || o.deliveryStatus === 'delivered') {
     status = 'Delivered';
@@ -30,7 +30,7 @@ export function mapStickerOrder(o: ApiStickerOrder): StickerOrderRow {
       : undefined;
 
   let pinStatus: StickerOrderRow['pinStatus'];
-  if (o.activatedAt) {
+  if (o.linkStatus === 'complete' || o.activatedAt) {
     pinStatus = 'Activated';
   } else {
     pinStatus = 'Reserved';
@@ -49,5 +49,8 @@ export function mapStickerOrder(o: ApiStickerOrder): StickerOrderRow {
     status,
     tracking,
     batch: o.activatedBatchRef || o.batchRef || undefined,
+    canLink: Boolean(o.canLink),
+    unlinkedPinCount: o.unlinkedPinCount,
+    linkStatus: o.linkStatus,
   };
 }

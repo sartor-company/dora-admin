@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
+import { getRememberedEmail, setRememberedEmail } from '../store/authStorage';
 import { ROLES } from '../constants/roles';
 import { mapLoginToProfile } from '../utils/mapAuth';
 
@@ -27,8 +28,9 @@ export function LoginPage() {
   const navigate = useNavigate();
   const token = useAuthStore((s) => s.token);
   const setAuth = useAuthStore((s) => s.setAuth);
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(() => getRememberedEmail());
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(() => Boolean(getRememberedEmail()));
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,7 +54,8 @@ export function LoginPage() {
         return;
       }
       const profile = mapLoginToProfile(data);
-      setAuth(profile);
+      setAuth(profile, rememberMe);
+      setRememberedEmail(rememberMe ? email.trim() : null);
       navigate(ROLES[profile.consoleRole].defaultPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed. Check email and password.');
@@ -149,6 +152,15 @@ export function LoginPage() {
                 <EyeIcon open={showPassword} />
               </button>
             </div>
+          </label>
+
+          <label className="login-remember">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            <span>Remember me</span>
           </label>
 
           <button type="submit" className="login-submit" disabled={loading}>

@@ -19,6 +19,17 @@ export interface ApiStickerOrder {
   activatedAt?: number;
   activatedBatchRef?: string;
   creationDateTime?: number;
+  linkStatus?: 'none' | 'partial' | 'complete';
+  pinsLinkedCount?: number;
+  unlinkedPinCount?: number;
+  pinPoolSize?: number;
+  canLink?: boolean;
+  allocations?: Array<{
+    batchId?: string;
+    batchNumber?: string;
+    pinCount?: number;
+    linkedAt?: number;
+  }>;
 }
 
 export interface StickerOrderSummary {
@@ -30,6 +41,16 @@ export interface StickerOrderSummary {
   awaitingDelivery?: number;
   readyToActivate?: number;
   unitsEnrolled?: number;
+}
+
+export interface LinkableBatch {
+  _id: string;
+  batchNumber: string;
+  quantity: number;
+  freeSlots: number;
+  linkedSlots: number;
+  status?: string;
+  maxLinkable: number;
 }
 
 export const stickersApi = {
@@ -51,15 +72,50 @@ export const stickersApi = {
     return unwrap<ApiStickerOrder>(res);
   },
 
+  linkableBatches: async (orderId: string) => {
+    const res = await apiClient.get(`/sticker-orders/${orderId}/linkable-batches`);
+    return unwrap<{
+      order: ApiStickerOrder;
+      unlinkedPins: number;
+      batches: LinkableBatch[];
+      productName?: string;
+      productId?: string;
+      hint?: string;
+      matchingBatchCount?: number;
+      otherProductBatchCount?: number;
+    }>(res);
+  },
+
+  link: async (
+    orderId: string,
+    body: {
+      batchId: string;
+      quantity?: number;
+    },
+  ) => {
+    const res = await apiClient.post(`/sticker-orders/${orderId}/link`, body);
+    return unwrap<{
+      order: ApiStickerOrder;
+      batchId: string;
+      batchNumber: string;
+      linkedCount: number;
+      unlinkedPinsRemaining: number;
+      freeSlotsRemainingOnBatch: number;
+      linkStatus: string;
+      canLinkMore: boolean;
+      pinCreditsReturned: number;
+    }>(res);
+  },
+
+  /** @deprecated Prefer link() — kept for compatibility */
   activate: async (
     orderId: string,
     body: {
-      batchNumber: string;
-      quantity: number;
-      expiryDate: number;
+      batchId?: string;
+      batchNumber?: string;
+      quantity?: number;
+      expiryDate?: number;
       manufactureDate?: number;
-      invoiceNumber?: string;
-      supplier?: string;
     },
   ) => {
     const res = await apiClient.post(`/sticker-orders/${orderId}/activate`, body);
@@ -67,8 +123,15 @@ export const stickersApi = {
       order: ApiStickerOrder;
       batchId: string;
       batchNumber: string;
+      linkedCount?: number;
+      unlinkedPinsRemaining?: number;
+      canLinkMore?: boolean;
       pinCreditsReturned: number;
-      batchCalCreditsRemaining: number;
     }>(res);
+  },
+
+  refundUnlinked: async (orderId: string) => {
+    const res = await apiClient.post(`/sticker-orders/${orderId}/refund-unlinked`);
+    return unwrap<{ pinCreditsReturned: number; order: ApiStickerOrder }>(res);
   },
 };

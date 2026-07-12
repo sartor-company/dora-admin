@@ -144,7 +144,6 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
   const [supplier, setSupplier] = useState('');
   const [snMode, setSnMode] = useState<SnMode>('auto');
   const [snFile, setSnFile] = useState<File | null>(null);
-  const [pinFormat, setPinFormat] = useState('10an');
   const [cartonQr, setCartonQr] = useState(true);
   const [unitsPerCarton, setUnitsPerCarton] = useState('24');
   const [labelConfig, setLabelConfig] = useState<LabelConfig>('2sided');
@@ -164,7 +163,6 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
     setSupplier('');
     setSnMode('auto');
     setSnFile(null);
-    setPinFormat('10an');
     setCartonQr(true);
     setUnitsPerCarton('24');
     setLabelConfig('2sided');
@@ -232,7 +230,6 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
             manufactureDate: manufactureTs ?? null,
             snMode,
             serialNumbers,
-            pinFormat,
             unitsPerCarton: parseInt(unitsPerCarton, 10) || 24,
             cartonQrEnabled: cartonQr,
             labelConfig,
@@ -425,20 +422,21 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
         subtitle: 'Step 3 of 4',
         content: (
           <>
-            <FormGroup label="PIN Format *" hint="The PIN is the unique per-unit code on your scratch-off panel.">
-              <select className="inp" value={pinFormat} onChange={(e) => setPinFormat(e.target.value)}>
-                <option value="10an">10-digit alphanumeric</option>
-                <option value="6n">6-digit numeric</option>
-                <option value="8n">8-digit numeric</option>
-                <option value="6a">6-char alphanumeric</option>
-              </select>
-            </FormGroup>
+            <div style={{ padding: '11px 13px', background: 'var(--bb)', borderRadius: 8, marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--bt)', marginBottom: 4 }}>
+                PINs come from sticker orders — not batch creation
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--bt)', lineHeight: 1.5 }}>
+                This step creates the batch and serial numbers only. Order stickers separately; when PINs are
+                generated and delivered, link them to this batch from Sticker Orders.
+              </div>
+            </div>
             <div style={{ padding: '11px 13px', background: 'var(--gb)', borderRadius: 8, marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--gt)', marginBottom: 4 }}>
                 ✓ Your unit label barcode is already configured from product registration
               </div>
               <div style={{ fontSize: 12, color: 'var(--gt)' }}>
-                Your batch print package includes your PIN only — nothing else to print per unit.
+                Serial numbers are assigned on this batch for inventory and carton tracking.
               </div>
             </div>
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14 }}>
@@ -505,7 +503,6 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
     quantity,
     supplier,
     snMode,
-    pinFormat,
     cartonQr,
     unitsPerCarton,
     labelConfig,

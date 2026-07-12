@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { labelsApi } from '../api/labels';
-import { stickersApi } from '../api/stickers';
+import { stickersApi, type LinkableBatch } from '../api/stickers';
 import { Button } from '../components/ui/Button';
 import { FormGroup } from '../components/ui/FormGroup';
 import { ImageUploadZone } from '../components/wizards/ImageUploadZone';
@@ -15,40 +15,24 @@ interface Props {
   onClose: () => void;
 }
 
-type ViewCount = 1 | 2 | 4 | 6;
-
-const VIEW_SLOTS: Record<ViewCount, { key: string; label: string; required?: boolean }[]> = {
-  1: [{ key: 'front', label: 'Front', required: true }],
-  2: [
-    { key: 'front', label: 'Front', required: true },
-    { key: 'back', label: 'Back', required: true },
-  ],
-  4: [
-    { key: 'front', label: 'Front', required: true },
-    { key: 'back', label: 'Back', required: true },
-    { key: 'left', label: 'Left' },
-    { key: 'right', label: 'Right' },
-  ],
-  6: [
-    { key: 'front', label: 'Front', required: true },
-    { key: 'back', label: 'Back', required: true },
-    { key: 'left', label: 'Left' },
-    { key: 'right', label: 'Right' },
-    { key: 'top', label: 'Top' },
-    { key: 'bottom', label: 'Bottom' },
-  ],
-};
-
 export function ActivateStickerBatchModal({ open, order, onClose }: Props) {
   const { refreshStickerOrders, refreshBatches, refreshAccount } = useTenantData();
   const { showToast } = useToast();
+  const [batches, setBatches] = useState<LinkableBatch[]>([]);
+  const [unlinkedPins, setUnlinkedPins] = useState(0);
+  const [hint, setHint] = useState('');
+  const [orderProductName, setOrderProductName] = useState(order?.product || 'Product');
+  const [batchId, setBatchId] = useState('');
   const [units, setUnits] = useState('');
-  const [batchNumber, setBatchNumber] = useState('');
-  const [manufactureDate, setManufactureDate] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [viewCount, setViewCount] = useState<ViewCount>(2);
-  const [images, setImages] = useState<Record<string, File | null>>({});
+  const [frontImage, setFrontImage] = useState<File | null>(null);
+  const [backImage, setBackImage] = useState<File | null>(null);
+  const [loadingBatches, setLoadingBatches] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [lastResult, setLastResult] = useState<{
+    batchNumber: string;
+    linkedCount: number;
+    remaining: number;
+  } | null>(null);
 
   const ref = order?.ref || 'STK-0001';
   const product = order?.product || 'Product';
@@ -56,66 +40,142 @@ export function ActivateStickerBatchModal({ open, order, onClose }: Props) {
   const planned = order?.planned ?? 0;
   const productId = order?.productId;
 
+  const selected = batches.find((b) => b._id === batchId);
+  const maxLinkable = selected
+    ? Math.min(selected.freeSlots, unlinkedPins || selected.maxLinkable)
+    : 0;
   const applied = parseInt(units, 10) || 0;
-  const surplus = Math.max(0, printed - applied);
-  const slots = VIEW_SLOTS[viewCount];
 
   const canSubmit = useMemo(() => {
-    if (!batchNumber.trim() || !units || !manufactureDate || !expiryDate) return false;
-    if (!applied || applied < 1 || applied > printed) return false;
-    return slots.filter((s) => s.required).every((s) => Boolean(images[s.key]));
-  }, [batchNumber, units, manufactureDate, expiryDate, applied, printed, slots, images]);
+    if (!batchId || !selected) return false;
+    if (unlinkedPins <= 0) return false;
+    if (!applied || applied < 1 || applied > maxLinkable) return false;
+    return true;
+  }, [batchId, selected, applied, maxLinkable, unlinkedPins]);
+
+  const loadBatches = async () => {
+    if (!order?.id) return;
+    setLoadingBatches(true);
+    try {
+      const data = await stickersApi.linkableBatches(order.id);
+      setBatches(data.batches);
+      setUnlinkedPins(data.unlinkedPins);
+      setHint(data.hint || '');
+      setOrderProductName(data.productName || order.product || 'Product');
+      if (data.batches.length === 1) {
+        setBatchId(data.batches[0]._id);
+        setUnits(String(data.batches[0].maxLinkable));
+      } else if (!data.batches.some((b) => b._id === batchId)) {
+        setBatchId('');
+        setUnits('');
+      }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not load batches.', 'error');
+      setBatches([]);
+      setUnlinkedPins(0);
+      setHint('');
+    } finally {
+      setLoadingBatches(false);
+    }
+  };
+
+  useEffect(() => {
+    if (open && order?.id) {
+      setLastResult(null);
+      setFrontImage(null);
+      setBackImage(null);
+      setHint('');
+      setOrderProductName(order.product || 'Product');
+      void loadBatches();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, order?.id]);
+
+  useEffect(() => {
+    if (!selected) return;
+    const cap = Math.min(selected.freeSlots, unlinkedPins || selected.maxLinkable);
+    setUnits(String(cap));
+  }, [batchId, selected, unlinkedPins]);
 
   const handleClose = () => {
+    setBatches([]);
+    setBatchId('');
     setUnits('');
-    setBatchNumber('');
-    setManufactureDate('');
-    setExpiryDate('');
-    setViewCount(2);
-    setImages({});
+    setUnlinkedPins(0);
+    setFrontImage(null);
+    setBackImage(null);
+    setLastResult(null);
     onClose();
   };
 
-  const handleActivate = async () => {
+  const handleLink = async () => {
     if (!order?.id || !canSubmit) {
-      showToast('Complete required fields and upload the front image to activate.', 'warn');
+      showToast('Select a batch and units to link.', 'warn');
       return;
     }
 
     setSubmitting(true);
     try {
-      const expiryTs = new Date(expiryDate).getTime();
-      const manufactureTs = new Date(manufactureDate).getTime();
-      const result = await stickersApi.activate(order.id, {
-        batchNumber: batchNumber.trim(),
+      const result = await stickersApi.link(order.id, {
+        batchId,
         quantity: applied,
-        expiryDate: expiryTs,
-        manufactureDate: manufactureTs,
       });
 
-      const front = images.front;
-      const back = images.back || images.front;
-      if (front && productId) {
+      if (frontImage && productId) {
         try {
-          await labelsApi.upload(productId, result.batchId, front, back!);
+          await labelsApi.upload(productId, result.batchId, frontImage, backImage || frontImage);
         } catch (uploadErr) {
           showToast(
             uploadErr instanceof Error
-              ? `Batch activated, but DORA upload failed: ${uploadErr.message}`
-              : 'Batch activated, but DORA upload failed.',
+              ? `PINs linked, but DORA upload failed: ${uploadErr.message}`
+              : 'PINs linked, but DORA upload failed.',
             'warn',
           );
         }
       }
 
       await Promise.all([refreshStickerOrders(), refreshBatches(), refreshAccount()]);
+
+      if (result.canLinkMore) {
+        setLastResult({
+          batchNumber: result.batchNumber,
+          linkedCount: result.linkedCount,
+          remaining: result.unlinkedPinsRemaining,
+        });
+        setFrontImage(null);
+        setBackImage(null);
+        await loadBatches();
+        showToast(
+          `Linked ${result.linkedCount.toLocaleString()} PINs to ${result.batchNumber}. ${result.unlinkedPinsRemaining.toLocaleString()} PINs left — add another batch.`,
+          'success',
+        );
+      } else {
+        handleClose();
+        showToast(
+          `${ref} fully linked. ${result.linkedCount.toLocaleString()} PINs assigned to ${result.batchNumber}.`,
+          'success',
+        );
+      }
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not link PINs to batch.', 'error');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleRefundRemaining = async () => {
+    if (!order?.id) return;
+    setSubmitting(true);
+    try {
+      const result = await stickersApi.refundUnlinked(order.id);
+      await Promise.all([refreshStickerOrders(), refreshAccount()]);
       handleClose();
       showToast(
-        `${ref} activated as ${result.batchNumber}. ${result.pinCreditsReturned.toLocaleString()} surplus PIN credits returned. DORA training submitted.`,
+        `${result.pinCreditsReturned.toLocaleString()} unused PIN credits returned.`,
         'success',
       );
     } catch (e) {
-      showToast(e instanceof Error ? e.message : 'Could not activate batch.', 'error');
+      showToast(e instanceof Error ? e.message : 'Could not refund unused PINs.', 'error');
     } finally {
       setSubmitting(false);
     }
@@ -125,9 +185,9 @@ export function ActivateStickerBatchModal({ open, order, onClose }: Props) {
     <Modal
       open={open}
       onClose={handleClose}
-      title={`Activate Batch — ${ref}`}
+      title={`Link PINs to Batch — ${ref}`}
       width={560}
-      subtitle={`${product} · ${printed.toLocaleString()} stickers delivered (${planned.toLocaleString()} planned + 10% overage)`}
+      subtitle={`${product} · ${printed.toLocaleString()} stickers (${planned.toLocaleString()} planned + 10% overage)`}
     >
       <div
         style={{
@@ -137,221 +197,146 @@ export function ActivateStickerBatchModal({ open, order, onClose }: Props) {
           fontSize: 12,
           color: 'var(--gt)',
           marginBottom: 14,
+          lineHeight: 1.55,
         }}
       >
-        ✓ After activation, PINs move from DORMANT to ACTIVE. DORA verification live in under 15 minutes. Unused
-        sticker credits returned immediately.
+        Select an existing batch. Unlinked PINs are assigned 1:1 to free serial numbers (FIFO). If this
+        order has more PINs than the batch has free slots, link what fits, then add another batch for the
+        rest.
       </div>
 
-      <div
-        style={{
-          background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: 13,
-          marginBottom: 12,
-        }}
-      >
+      {lastResult && (
         <div
           style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: 'var(--text3)',
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-            marginBottom: 10,
-          }}
-        >
-          Production Batch Details
-        </div>
-        <div className="fr2">
-          <FormGroup label="Batch Number *">
-            <div style={{ display: 'flex', gap: 7 }}>
-              <input
-                className="inp"
-                placeholder="e.g. BTH-2026-042"
-                style={{ flex: 1, fontFamily: "'DM Mono', monospace" }}
-                value={batchNumber}
-                onChange={(e) => setBatchNumber(e.target.value)}
-              />
-              <Button
-                variant="secondary"
-                size="sm"
-                type="button"
-                onClick={() => {
-                  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-                  setBatchNumber(`BTH-${stamp.slice(2)}-${Math.floor(Math.random() * 900 + 100)}`);
-                }}
-              >
-                ✦
-              </Button>
-            </div>
-          </FormGroup>
-          <FormGroup label="Actual Units Applied *" hint={`Max ${printed.toLocaleString()} (stickers delivered)`}>
-            <input
-              className="inp"
-              type="number"
-              placeholder={`e.g. ${planned}`}
-              max={printed}
-              value={units}
-              onChange={(e) => setUnits(e.target.value)}
-            />
-          </FormGroup>
-        </div>
-        <div className="fr2">
-          <FormGroup label="Manufacture Date *">
-            <input
-              className="inp"
-              type="date"
-              value={manufactureDate}
-              onChange={(e) => setManufactureDate(e.target.value)}
-            />
-          </FormGroup>
-          <FormGroup label="Expiry Date *">
-            <input className="inp" type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} />
-          </FormGroup>
-        </div>
-      </div>
-
-      <div
-        style={{
-          background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: 13,
-          marginBottom: 12,
-          fontSize: 12,
-        }}
-      >
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 700,
-            color: 'var(--text3)',
-            textTransform: 'uppercase',
-            letterSpacing: 0.4,
-            marginBottom: 8,
-          }}
-        >
-          Credit Impact
-        </div>
-        {[
-          ['Stickers delivered (incl. 10% overage)', printed.toLocaleString()],
-          ['Actual units applied', applied > 0 ? applied.toLocaleString() : '—'],
-          ['Surplus credits returned', surplus > 0 || applied > 0 ? surplus.toLocaleString() : '—'],
-          ['Batch calibration credit', '1'],
-        ].map(([label, val], i) => (
-          <div
-            key={label}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              padding: '3px 0',
-              borderBottom: '1px solid var(--bg2)',
-            }}
-          >
-            <span>{label}</span>
-            <span
-              style={{
-                fontFamily: "'DM Mono', monospace",
-                color: i === 2 && surplus > 0 ? 'var(--green)' : undefined,
-              }}
-            >
-              {val}
-            </span>
-          </div>
-        ))}
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', fontWeight: 700 }}>
-          <span>Net credits deducted</span>
-          <span style={{ fontFamily: "'DM Mono', monospace" }}>
-            {applied > 0 ? `${applied.toLocaleString()} PIN + 1 cal` : '—'}
-          </span>
-        </div>
-      </div>
-
-      <div
-        style={{
-          background: 'var(--bg)',
-          border: '1px solid var(--border)',
-          borderRadius: 8,
-          padding: 13,
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 12,
-            flexWrap: 'wrap',
-            marginBottom: 8,
-          }}
-        >
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: 'var(--text3)',
-              textTransform: 'uppercase',
-              letterSpacing: 0.4,
-            }}
-          >
-            DORA AI Reference Images
-          </div>
-          <FormGroup label="Number of product views *" hint="">
-            <select
-              className="inp"
-              style={{ minWidth: 170 }}
-              value={viewCount}
-              onChange={(e) => {
-                setViewCount(Number(e.target.value) as ViewCount);
-                setImages({});
-              }}
-            >
-              <option value={1}>1 side — Front only</option>
-              <option value={2}>2 sides — Front &amp; Back</option>
-              <option value={4}>4 sides — Front, Back, Left &amp; Right</option>
-              <option value={6}>6 sides — All faces</option>
-            </select>
-          </FormGroup>
-        </div>
-        <div
-          style={{
-            padding: '8px 10px',
+            padding: '9px 12px',
             background: 'var(--bb)',
-            borderRadius: 6,
-            fontSize: 11,
+            borderRadius: 7,
+            fontSize: 12,
             color: 'var(--bt)',
+            marginBottom: 14,
+          }}
+        >
+          ✓ Linked {lastResult.linkedCount.toLocaleString()} to <strong>{lastResult.batchNumber}</strong>.{' '}
+          {lastResult.remaining.toLocaleString()} PINs still unlinked — choose another batch below, or
+          return unused credits.
+        </div>
+      )}
+
+      <div
+        style={{
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          borderRadius: 8,
+          padding: 13,
+          marginBottom: 12,
+        }}
+      >
+        <div
+          style={{
+            fontSize: 10,
+            fontWeight: 700,
+            color: 'var(--text3)',
+            textTransform: 'uppercase',
+            letterSpacing: 0.4,
             marginBottom: 10,
           }}
         >
-          Upload whole-product photographs with the full product in frame. Training currently submits front + back to
-          DORA. Extra views are collected for ops review.
+          Link to existing batch
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
-          {slots.map((slot) => (
-            <ImageUploadZone
-              key={slot.key}
-              label={`${slot.label}${slot.required ? ' *' : ''}`}
-              required={slot.required}
-              file={images[slot.key]}
-              onFileChange={(f) => setImages((prev) => ({ ...prev, [slot.key]: f }))}
-            />
-          ))}
+
+        <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+          Product:{' '}
+          <strong>{orderProductName}</strong>
+          {' · '}
+          Unlinked PINs:{' '}
+          <strong style={{ fontFamily: "'DM Mono', monospace" }}>
+            {loadingBatches ? '…' : unlinkedPins.toLocaleString()}
+          </strong>
+        </div>
+
+        {!loadingBatches && batches.length === 0 && hint && (
+          <div
+            style={{
+              padding: '9px 12px',
+              background: 'var(--yb)',
+              border: '1px solid var(--y)',
+              borderRadius: 7,
+              fontSize: 12,
+              color: 'var(--yt)',
+              marginBottom: 10,
+            }}
+          >
+            {hint}
+          </div>
+        )}
+
+        <FormGroup label="Batch *">
+          <select
+            className="inp"
+            value={batchId}
+            onChange={(e) => setBatchId(e.target.value)}
+            disabled={loadingBatches || batches.length === 0}
+          >
+            <option value="">
+              {loadingBatches
+                ? 'Loading batches…'
+                : batches.length === 0
+                  ? 'No matching batches with free SN slots'
+                  : 'Select a batch…'}
+            </option>
+            {batches.map((b) => (
+              <option key={b._id} value={b._id}>
+                {b.batchNumber} · {b.freeSlots.toLocaleString()} / {b.quantity.toLocaleString()} slots free
+              </option>
+            ))}
+          </select>
+        </FormGroup>
+
+        <FormGroup
+          label="PINs to link *"
+          hint={
+            selected
+              ? `Max ${maxLinkable.toLocaleString()} (min of free slots and unlinked PINs)`
+              : 'Select a batch first'
+          }
+        >
+          <input
+            className="inp"
+            type="number"
+            min={1}
+            max={maxLinkable || undefined}
+            value={units}
+            onChange={(e) => setUnits(e.target.value)}
+            disabled={!selected}
+          />
+        </FormGroup>
+      </div>
+
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>
+          DORA reference images <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(optional)</span>
+        </div>
+        <div className="fr2">
+          <ImageUploadZone label="Front" file={frontImage} onFileChange={setFrontImage} />
+          <ImageUploadZone label="Back" file={backImage} onFileChange={setBackImage} />
         </div>
       </div>
 
       <ModalFooter>
-        <div style={{ flex: 1, fontSize: 11, color: 'var(--text3)' }}>
-          {canSubmit
-            ? 'Ready to activate.'
-            : 'Complete required fields and upload the front image to activate.'}
-        </div>
+        {unlinkedPins > 0 && lastResult && (
+          <Button variant="secondary" onClick={handleRefundRemaining} disabled={submitting}>
+            Return unused credits
+          </Button>
+        )}
         <Button variant="secondary" onClick={handleClose} disabled={submitting}>
-          Cancel
+          {lastResult && unlinkedPins > 0 ? 'Finish later' : 'Cancel'}
         </Button>
-        <Button variant="accent" onClick={handleActivate} disabled={submitting || !canSubmit}>
-          {submitting ? 'Activating…' : 'Activate & Upload →'}
+        <Button onClick={handleLink} disabled={!canSubmit || submitting}>
+          {submitting
+            ? 'Linking…'
+            : lastResult
+              ? 'Add another batch →'
+              : 'Link PINs →'}
         </Button>
       </ModalFooter>
     </Modal>

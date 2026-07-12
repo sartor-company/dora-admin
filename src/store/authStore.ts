@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { RoleId } from '../types';
+import { AUTH_KEY, authStorage } from './authStorage';
 
 export interface NotificationPrefs {
   investigationAlerts: boolean;
@@ -59,8 +60,9 @@ export interface TenantProfile {
 interface AuthState {
   user: TenantProfile | null;
   token: string | null;
+  rememberMe: boolean;
   sessionChecked: boolean;
-  setAuth: (user: TenantProfile) => void;
+  setAuth: (user: TenantProfile, rememberMe?: boolean) => void;
   updateProfile: (patch: Partial<TenantProfile>) => void;
   setSessionChecked: (v: boolean) => void;
   logout: () => void;
@@ -71,13 +73,23 @@ export const useAuthStore = create<AuthState>()(
     (set) => ({
       user: null,
       token: null,
+      rememberMe: false,
       sessionChecked: false,
-      setAuth: (user) => set({ user, token: user.token, sessionChecked: true }),
+      setAuth: (user, rememberMe = false) =>
+        set({ user, token: user.token, rememberMe, sessionChecked: true }),
       updateProfile: (patch) =>
         set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
       setSessionChecked: (sessionChecked) => set({ sessionChecked }),
-      logout: () => set({ user: null, token: null, sessionChecked: true }),
+      logout: () => set({ user: null, token: null, rememberMe: false, sessionChecked: true }),
     }),
-    { name: 'dora-client-auth' },
+    {
+      name: AUTH_KEY,
+      storage: createJSONStorage(() => authStorage),
+      partialize: (s) => ({
+        user: s.user,
+        token: s.token,
+        rememberMe: s.rememberMe,
+      }),
+    },
   ),
 );

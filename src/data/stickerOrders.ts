@@ -13,6 +13,9 @@ export interface StickerOrderRow {
   status: StickerOrderStatus;
   tracking?: string;
   batch?: string;
+  canLink?: boolean;
+  unlinkedPinCount?: number;
+  linkStatus?: 'none' | 'partial' | 'complete';
 }
 
 /** Demo data until sticker-order API is available */
