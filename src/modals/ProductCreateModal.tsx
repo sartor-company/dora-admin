@@ -313,7 +313,7 @@ export function ProductCreateModal({ open, onClose, onSuccess }: ProductCreateMo
               <FormGroup label="Size / Volume" hint="Enables DORA size check (F6)">
                 <input className="inp" placeholder="e.g. 500ml, 250g" value={sizeVolume} onChange={(e) => setSizeVolume(e.target.value)} />
               </FormGroup>
-              <FormGroup label="SKU Name (as printed on label)" hint="Enables DORA SKU name OCR check (F5)">
+              <FormGroup label="SKU Name (as printed on label)" hint="Enables DORA SKU name OCR check (F5). SKU ID is assigned automatically.">
                 <input className="inp" placeholder="Exact name on label" value={skuLabelName} onChange={(e) => setSkuLabelName(e.target.value)} />
               </FormGroup>
             </div>

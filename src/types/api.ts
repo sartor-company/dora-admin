@@ -2,6 +2,10 @@ export interface ApiProduct {
   _id: string;
   productName: string;
   batchId?: string;
+  productId?: string;
+  skuCode?: string;
+  skuLabelName?: string;
+  sizeVolume?: string;
   barcodeNumber?: string | null;
   manufacturer?: string | null;
   description?: string | null;

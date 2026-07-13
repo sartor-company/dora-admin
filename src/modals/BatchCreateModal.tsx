@@ -26,13 +26,34 @@ function generateBatchNumber() {
   return `BATCH-2026-Q2-${Math.floor(Math.random() * 900) + 100}`;
 }
 
-function downloadSampleSnManifest(batchNumber: string) {
-  const sampleBatch = batchNumber.trim() || 'BATCH-SAMPLE-001';
-  const prefix = sampleBatch.replace(/[^A-Za-z0-9]/g, '').slice(0, 12) || 'BATCHSAMPLE';
+function downloadSampleSnManifest(batchNumber: string, productCode = 'SDS500') {
+  const sampleBatch = batchNumber.trim() || '250603';
+  const code = productCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 12) || 'PRD';
+  const safeBatch = sampleBatch.replace(/[^A-Za-z0-9]/g, '').toUpperCase() || 'BATCH';
   const rows = Array.from({ length: 8 }, (_, i) => [
-    `${prefix}-${String(i + 1).padStart(4, '0')}`,
+    `${code}-${safeBatch}-${String(i + 1).padStart(4, '0')}`,
   ]);
   downloadCsv('sn-manifest-sample.csv', ['serial_number'], rows);
+}
+
+function deriveClientProductCode(product?: {
+  skuCode?: string;
+  skuLabelName?: string;
+  productName?: string;
+  sizeVolume?: string;
+  batchId?: string;
+}) {
+  if (product?.skuCode?.trim()) {
+    return product.skuCode.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 16);
+  }
+  const name = String(product?.skuLabelName || product?.productName || 'PRD')
+    .replace(/[^A-Za-z0-9\s]/g, ' ')
+    .trim();
+  const words = name.split(/\s+/).filter(Boolean);
+  let letters = words.map((w) => w[0]).join('').toUpperCase().slice(0, 6);
+  if (letters.length < 2) letters = (name.replace(/\s+/g, '').toUpperCase() + 'PRD').slice(0, 3);
+  const vol = String(product?.sizeVolume || '').replace(/[^0-9]/g, '').slice(0, 6);
+  return `${letters}${vol}`.slice(0, 16) || 'PRD';
 }
 
 function parseCsvRow(line: string): string[] {
@@ -253,6 +274,12 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
     }
   };
 
+  const selectedProduct = products.find((p) => p._id === productId);
+  const productCode = deriveClientProductCode(selectedProduct);
+  const snPreview =
+    batchNumber.trim() &&
+    `${productCode}-${batchNumber.trim().replace(/[^A-Za-z0-9]/g, '').toUpperCase()}-0001`;
+
   const verifyUrl = consumerVerifyUrl(clientCode);
 
   const steps = useMemo((): StepDef[] => {
@@ -304,7 +331,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
                 <option value="">Select product...</option>
                 {products.map((p) => (
                   <option key={p._id} value={p._id}>
-                    {p.productName}
+                    {(p.batchId || p.productId || 'SKU')} · {p.productName}
                   </option>
                 ))}
               </select>
@@ -375,10 +402,19 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
               <ChoiceCard
                 selected={snMode === 'auto'}
                 title="⚡ Auto-generate Serial Numbers"
-                description="Format: SC-BATCH-43-0001, SC-BATCH-43-0002…"
+                description={
+                  snPreview
+                    ? `Format: ${productCode}-{batch}-0001 … e.g. ${snPreview}`
+                    : `Format: ${productCode}-{batch}-0001`
+                }
                 onClick={() => setSnMode('auto')}
               />
             </div>
+            {snMode === 'auto' && snPreview && (
+              <p style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
+                Creates 1 batch with {quantity || 'N'} serial numbers.
+              </p>
+            )}
             {snMode === 'upload' && (
               <div
                 style={{
@@ -397,7 +433,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
                     type="file"
                     accept=".csv,text/csv"
                     className="inp"
-                    onChange={(e) => setSnFile(e.target.files?.[0] ?? null)}
+                    onChange={(e) => setSnFile(e.target.files?.[0] || null)}
                   />
                   <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text3)' }}>
                     {snFile ? `Selected: ${snFile.name}` : 'No file selected'}
@@ -407,7 +443,7 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => downloadSampleSnManifest(batchNumber)}
+                    onClick={() => downloadSampleSnManifest(batchNumber, productCode)}
                   >
                     ↓ Download Sample SN Manifest
                   </Button>
@@ -503,6 +539,9 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
     quantity,
     supplier,
     snMode,
+    snFile,
+    snPreview,
+    productCode,
     cartonQr,
     unitsPerCarton,
     labelConfig,
