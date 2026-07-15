@@ -442,19 +442,25 @@ export function OwnerSettingsPage() {
                     </td>
                     <td>{m.email}</td>
                     <td>
-                      <Badge variant="bb">{teamMemberRoleLabel(m)}</Badge>
+                      <Badge variant={m.isOwner || m.consoleRole === 'owner' ? 'bp' : 'bb'}>
+                        {teamMemberRoleLabel(m)}
+                      </Badge>
                     </td>
                     <td>
                       <Badge variant={m.blocked ? 'br' : 'bg'}>{m.blocked ? 'Blocked' : 'Active'}</Badge>
                     </td>
                     <td>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => openModal('edit-member', { member: m } satisfies EditMemberPayload)}
-                      >
-                        Edit
-                      </Button>
+                      {m.isOwner || m.consoleRole === 'owner' ? (
+                        <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => openModal('edit-member', { member: m } satisfies EditMemberPayload)}
+                        >
+                          Edit
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))

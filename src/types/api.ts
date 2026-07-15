@@ -58,6 +58,7 @@ export interface ApiTeamMember {
   email: string;
   phone?: string;
   role?: string;
-  consoleRole?: 'batch' | 'brand' | 'inv';
+  consoleRole?: 'owner' | 'batch' | 'brand' | 'inv';
   blocked?: boolean;
+  isOwner?: boolean;
 }
