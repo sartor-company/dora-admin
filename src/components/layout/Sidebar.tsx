@@ -1,16 +1,34 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { NavLink } from 'react-router-dom';
 import { ROLES } from '../../constants/roles';
 import { useApp } from '../../context/AppContext';
 import { useTenantData } from '../../context/TenantDataContext';
 import { companyInitials } from '../../constants/dorascan';
+import { useAuthStore } from '../../store/authStore';
 import { NavIcon } from '../icons/NavIcon';
 import type { NavItem } from '../../types';
 
 export function Sidebar() {
   const { role, sidebarOpen, closeSidebar, companyName, crmEnabled } = useApp();
   const { navBadges } = useTenantData();
+  const user = useAuthStore((s) => s.user);
   const config = ROLES[role];
+
+  const loggedInName = useMemo(() => {
+    if (!user) return config.user;
+    return user.displayName || user.contactName || user.fullName || config.user;
+  }, [user, config.user]);
+
+  const loggedInSub = useMemo(() => {
+    if (!user) return companyName;
+    if (user.email) return user.email;
+    return companyName;
+  }, [user, companyName]);
+
+  const userInitials = useMemo(
+    () => companyInitials(loggedInName),
+    [loggedInName],
+  );
 
   const badgeFor = (badgeKey?: NavItem['badgeKey']): number | undefined => {
     if (!badgeKey) return undefined;
@@ -114,11 +132,11 @@ export function Sidebar() {
           </div>
           <div className="suser">
             <div className="sav" style={{ background: config.avatarBg }}>
-              {config.initials}
+              {userInitials}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="sun">{config.user}</div>
-              <div className="srt">{companyName}</div>
+              <div className="sun">{loggedInName}</div>
+              <div className="srt">{loggedInSub}</div>
             </div>
             <span className={`spill ${config.pillClass}`}>{config.pill}</span>
           </div>
