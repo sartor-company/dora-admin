@@ -28,7 +28,6 @@ import type { ApiBatch, ApiNotification, ApiProduct, ApiTeamMember } from '../ty
 import { batchDisplayRow, productDisplayRow, type BatchRow, type ProductRow } from '../utils/mappers';
 import {
   getLocalNotifications,
-  markLocalNotificationsRead,
   subscribeLocalNotifications,
   type LocalAppNotification,
 } from '../utils/appFeedback';
@@ -132,9 +131,14 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
     setNotifications(mergeTenantNotifications(list));
   }, []);
 
-  useEffect(() => subscribeLocalNotifications(() => {
-    void refreshNotifications();
-  }), [refreshNotifications]);
+  useEffect(() => {
+    const unsubscribe = subscribeLocalNotifications(() => {
+      void refreshNotifications();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [refreshNotifications]);
 
   const refreshTeam = useCallback(async () => {
     const list = await usersApi.list();

@@ -26,7 +26,8 @@ export function EditMemberModal({ open, member, onClose, onSuccess }: EditMember
   useEffect(() => {
     if (!open || !member) return;
     setFullName(member.fullName || '');
-    setConsoleRole(member.consoleRole || 'batch');
+    const role = member.consoleRole;
+    setConsoleRole(role === 'batch' || role === 'brand' || role === 'inv' ? role : 'batch');
     setBlocked(!!member.blocked);
     setError('');
   }, [open, member]);

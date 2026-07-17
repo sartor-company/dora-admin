@@ -48,9 +48,11 @@ export function getLocalNotifications(): LocalAppNotification[] {
   return readStore();
 }
 
-export function subscribeLocalNotifications(cb: () => void) {
+export function subscribeLocalNotifications(cb: () => void): () => void {
   listeners.add(cb);
-  return () => listeners.delete(cb);
+  return () => {
+    listeners.delete(cb);
+  };
 }
 
 export function pushLocalNotification(
