@@ -8,6 +8,11 @@ import { useTenantData } from '../context/TenantDataContext';
 import { useToast } from '../context/ToastContext';
 import type { ApiNotification } from '../types/api';
 import { formatApiDate } from '../utils/mappers';
+import { markLocalNotificationsRead } from '../utils/appFeedback';
+
+function isLocalNotif(id: string) {
+  return id.startsWith('session-') || id.startsWith('local-');
+}
 
 function inferTarget(text: string): string | null {
   const t = text.toLowerCase();
@@ -38,6 +43,7 @@ export function NotificationsPage() {
       return;
     }
     try {
+      markLocalNotificationsRead();
       await notificationsApi.markAllRead();
       await refreshNotifications();
       showToast('All notifications marked as read.', 'success');
@@ -49,7 +55,11 @@ export function NotificationsPage() {
   const openNotification = async (n: ApiNotification) => {
     if (!n.status) {
       try {
-        await notificationsApi.markRead(n._id);
+        if (isLocalNotif(n._id)) {
+          markLocalNotificationsRead(n._id);
+        } else {
+          await notificationsApi.markRead(n._id);
+        }
         await refreshNotifications();
       } catch {
         /* still allow navigation */
@@ -128,7 +138,11 @@ export function NotificationsPage() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              await notificationsApi.markRead(n._id);
+                              if (isLocalNotif(n._id)) {
+                                markLocalNotificationsRead(n._id);
+                              } else {
+                                await notificationsApi.markRead(n._id);
+                              }
                               await refreshNotifications();
                             } catch {
                               showToast('Could not mark as read.', 'error');

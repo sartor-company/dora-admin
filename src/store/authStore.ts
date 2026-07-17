@@ -62,6 +62,8 @@ interface AuthState {
   token: string | null;
   rememberMe: boolean;
   sessionChecked: boolean;
+  /** Absolute session start (ms) for client-side max age */
+  loggedInAt: number | null;
   setAuth: (user: TenantProfile, rememberMe?: boolean) => void;
   updateProfile: (patch: Partial<TenantProfile>) => void;
   setSessionChecked: (v: boolean) => void;
@@ -75,12 +77,26 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       rememberMe: false,
       sessionChecked: false,
+      loggedInAt: null,
       setAuth: (user, rememberMe = false) =>
-        set({ user, token: user.token, rememberMe, sessionChecked: true }),
+        set({
+          user,
+          token: user.token,
+          rememberMe,
+          sessionChecked: true,
+          loggedInAt: Date.now(),
+        }),
       updateProfile: (patch) =>
         set((s) => (s.user ? { user: { ...s.user, ...patch } } : s)),
       setSessionChecked: (sessionChecked) => set({ sessionChecked }),
-      logout: () => set({ user: null, token: null, rememberMe: false, sessionChecked: true }),
+      logout: () =>
+        set({
+          user: null,
+          token: null,
+          rememberMe: false,
+          sessionChecked: true,
+          loggedInAt: null,
+        }),
     }),
     {
       name: AUTH_KEY,
@@ -89,6 +105,7 @@ export const useAuthStore = create<AuthState>()(
         user: s.user,
         token: s.token,
         rememberMe: s.rememberMe,
+        loggedInAt: s.loggedInAt,
       }),
     },
   ),

@@ -1,10 +1,11 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { useAuthStore } from '../store/authStore';
 import { getRememberedEmail, setRememberedEmail } from '../store/authStorage';
 import { ROLES } from '../constants/roles';
 import { mapLoginToProfile } from '../utils/mapAuth';
+import { appToast } from '../utils/appFeedback';
 
 function EyeIcon({ open }: { open: boolean }) {
   if (open) {
@@ -26,6 +27,8 @@ function EyeIcon({ open }: { open: boolean }) {
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const sessionExpired = searchParams.get('session') === 'expired';
   const token = useAuthStore((s) => s.token);
   const setAuth = useAuthStore((s) => s.setAuth);
   const [email, setEmail] = useState(() => getRememberedEmail());
@@ -38,10 +41,18 @@ export function LoginPage() {
   const user = useAuthStore((s) => s.user);
 
   useEffect(() => {
+    if (sessionExpired) {
+      useAuthStore.getState().logout();
+      appToast('Your session has expired. Please sign in again.', 'warn');
+    }
+  }, [sessionExpired]);
+
+  useEffect(() => {
+    if (sessionExpired) return;
     if (token && user?.consoleRole) {
       navigate(ROLES[user.consoleRole].defaultPath, { replace: true });
     }
-  }, [token, user?.consoleRole, navigate]);
+  }, [token, user?.consoleRole, navigate, sessionExpired]);
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -115,6 +126,12 @@ export function LoginPage() {
           <p className="login-panel-sub">
             Sign in as account owner or invited team member (Batch, Brand, or Investigations).
           </p>
+
+          {sessionExpired && (
+            <div className="login-error">
+              Your session has expired. Please sign in again to continue.
+            </div>
+          )}
 
           {error && <div className="login-error">{error}</div>}
 

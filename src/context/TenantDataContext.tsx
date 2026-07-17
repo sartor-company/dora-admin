@@ -26,6 +26,28 @@ import type { AnalyticsOverview } from '../types/analytics';
 import type { CampaignListItem, CampaignSummary } from '../types/gifts';
 import type { ApiBatch, ApiNotification, ApiProduct, ApiTeamMember } from '../types/api';
 import { batchDisplayRow, productDisplayRow, type BatchRow, type ProductRow } from '../utils/mappers';
+import {
+  getLocalNotifications,
+  markLocalNotificationsRead,
+  subscribeLocalNotifications,
+  type LocalAppNotification,
+} from '../utils/appFeedback';
+
+function mapLocalToApiNotif(n: LocalAppNotification): ApiNotification {
+  return {
+    _id: n.id,
+    notification: `${n.title}: ${n.body}`,
+    status: n.read,
+    type: n.kind === 'error' ? 1 : 0,
+    creationDateTime: n.createdAt,
+  };
+}
+
+function mergeTenantNotifications(server: ApiNotification[]): ApiNotification[] {
+  const local = getLocalNotifications().map(mapLocalToApiNotif);
+  const ids = new Set(local.map((n) => n._id));
+  return [...local, ...server.filter((n) => !ids.has(n._id))];
+}
 
 export interface DoraUploadTarget {
   batchId: string;
@@ -107,8 +129,12 @@ export function TenantDataProvider({ children }: { children: ReactNode }) {
 
   const refreshNotifications = useCallback(async () => {
     const list = await notificationsApi.list();
-    setNotifications(list);
+    setNotifications(mergeTenantNotifications(list));
   }, []);
+
+  useEffect(() => subscribeLocalNotifications(() => {
+    void refreshNotifications();
+  }), [refreshNotifications]);
 
   const refreshTeam = useCallback(async () => {
     const list = await usersApi.list();
