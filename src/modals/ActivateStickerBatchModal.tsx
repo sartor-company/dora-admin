@@ -109,6 +109,7 @@ export function ActivateStickerBatchModal({ open, order, onClose }: Props) {
   };
 
   const handleLink = async () => {
+    if (submitting) return;
     if (!order?.id || !canSubmit) {
       showToast('Select a batch and units to link.', 'warn');
       return;
@@ -164,7 +165,7 @@ export function ActivateStickerBatchModal({ open, order, onClose }: Props) {
   };
 
   const handleRefundRemaining = async () => {
-    if (!order?.id) return;
+    if (submitting || !order?.id) return;
     setSubmitting(true);
     try {
       const result = await stickersApi.refundUnlinked(order.id);
