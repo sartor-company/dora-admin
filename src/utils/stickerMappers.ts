@@ -6,9 +6,17 @@ import { formatApiDate } from './mappers';
  * Maps platform sticker stages to console statuses (aligned with v4.5.1 labels).
  * New client-submitted orders start as Planned until Sartor ops advances them.
  */
+function isLinkedToBatch(o: ApiStickerOrder): boolean {
+  if (o.linkStatus === 'complete' || o.linkStatus === 'partial') return true;
+  if (o.activatedAt) return true;
+  if ((o.pinsLinkedCount || 0) > 0) return true;
+  if (o.activatedBatchRef || o.batchRef) return true;
+  return false;
+}
+
 export function mapStickerOrder(o: ApiStickerOrder): StickerOrderRow {
   let status: StickerOrderRow['status'];
-  if (o.linkStatus === 'complete' || o.activatedAt) {
+  if (isLinkedToBatch(o)) {
     status = 'Activated';
   } else if (o.stage === 'delivered' || o.deliveryStatus === 'delivered') {
     status = 'Delivered';
@@ -30,7 +38,7 @@ export function mapStickerOrder(o: ApiStickerOrder): StickerOrderRow {
       : undefined;
 
   let pinStatus: StickerOrderRow['pinStatus'];
-  if (o.linkStatus === 'complete' || o.activatedAt) {
+  if (isLinkedToBatch(o)) {
     pinStatus = 'Activated';
   } else {
     pinStatus = 'Reserved';

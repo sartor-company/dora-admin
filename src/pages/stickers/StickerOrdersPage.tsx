@@ -275,22 +275,31 @@ export function StickerOrdersPage() {
                           {(row.unlinkedPinCount ?? 0) <= 0 ? 'Awaiting PINs' : 'Cannot Link'}
                         </Button>
                       )}
-                      {row.status === 'Activated' && row.batch && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            const batch = batches.find((b) => b.batchNumber === row.batch);
-                            if (batch?._id) navigateTo(`/batches/detail?id=${batch._id}`);
-                          }}
-                        >
-                          View Batch
-                        </Button>
-                      )}
-                      {row.status === 'Activated' && !row.batch && (
-                        <Button variant="secondary" size="sm" disabled>
-                          Activated
-                        </Button>
+                      {row.status === 'Activated' && (
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {row.batch && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                const batch = batches.find((b) => b.batchNumber === row.batch);
+                                if (batch?._id) navigateTo(`/batches/detail?id=${batch._id}`);
+                              }}
+                            >
+                              View Batch
+                            </Button>
+                          )}
+                          {!isReadOnly && row.canLink && (
+                            <Button size="sm" onClick={() => openActivate(row)}>
+                              Add Batch →
+                            </Button>
+                          )}
+                          {!row.batch && !row.canLink && (
+                            <Button variant="secondary" size="sm" disabled>
+                              Activated
+                            </Button>
+                          )}
+                        </div>
                       )}
                       {row.status === 'Dispatched' && (
                         <Button
