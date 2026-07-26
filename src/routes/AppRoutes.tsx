@@ -9,6 +9,7 @@ import { BatchDashboardPage } from '../pages/batch/BatchDashboardPage';
 import { BatchSettingsPage } from '../pages/batch/BatchSettingsPage';
 import { BatchDetailPage } from '../pages/batches/BatchDetailPage';
 import { BatchListPage } from '../pages/batches/BatchListPage';
+import { BrandConsumersPage } from '../pages/brand/BrandConsumersPage';
 import { BrandDashboardPage } from '../pages/brand/BrandDashboardPage';
 import { BrandFraudPage } from '../pages/brand/BrandFraudPage';
 import { BrandGeoPage } from '../pages/brand/BrandGeoPage';
@@ -58,6 +59,7 @@ export function AppRoutes() {
           <Route path="brand/dashboard" element={<BrandDashboardPage />} />
           <Route path="brand/geo" element={<BrandGeoPage />} />
           <Route path="brand/loyalty" element={<BrandLoyaltyPage />} />
+          <Route path="brand/consumers" element={<BrandConsumersPage />} />
           <Route path="brand/fraud" element={<BrandFraudPage />} />
           <Route path="brand/settings" element={<BrandSettingsPage />} />
           <Route path="investigations/dashboard" element={<InvDashboardPage />} />

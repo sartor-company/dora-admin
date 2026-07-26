@@ -11,6 +11,7 @@ export const LEGACY_PAGE_PATHS: Record<string, string> = {
   'pg-brand-dash': '/brand/dashboard',
   'pg-brand-geo': '/brand/geo',
   'pg-brand-loyalty': '/brand/loyalty',
+  'pg-consumers': '/brand/consumers',
   'pg-brand-fraud': '/brand/fraud',
   'pg-brand-settings': '/brand/settings',
   'pg-inv-dash': '/investigations/dashboard',
