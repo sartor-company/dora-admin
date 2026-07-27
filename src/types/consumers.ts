@@ -6,6 +6,8 @@ export type ConsumerListItem = {
   phone: string;
   email: string;
   emailMasked: string;
+  phoneMasked?: string;
+  hasFullPhone?: boolean;
   joined: string;
   joinedAt?: number | null;
   status: ConsumerStatus;

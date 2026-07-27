@@ -575,3 +575,217 @@
     font-size: 20px;
   }
 }
+
+/* ── Consumer Directory ── */
+.consumers-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.consumers-toolbar__title {
+  min-width: 0;
+  flex: 1 1 180px;
+}
+
+.consumers-toolbar__meta {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 3px;
+}
+
+.consumers-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.consumers-filters {
+  margin-bottom: 14px;
+}
+
+.consumers-filters__search {
+  flex: 1 1 220px !important;
+  min-width: 0 !important;
+}
+
+.consumers-note {
+  margin-top: 12px;
+  padding: 9px 11px;
+  background: var(--bb);
+  border-radius: 7px;
+  font-size: 11px;
+  color: var(--bt);
+  line-height: 1.45;
+}
+
+.consumers-mobile-list {
+  display: none;
+}
+
+.consumers-table-desk {
+  display: block;
+}
+
+.consumers-mobile-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: var(--bg);
+  margin-bottom: 10px;
+}
+
+.consumers-mobile-card__top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.consumers-mobile-card__check {
+  padding-top: 2px;
+}
+
+.consumers-mobile-card__identity {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.consumers-mobile-card__identity span {
+  font-size: 11px;
+  color: var(--text3);
+}
+
+.consumers-mobile-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.consumers-mobile-card__span2 {
+  grid-column: 1 / -1;
+}
+
+.consumers-mobile-card__label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 3px;
+}
+
+.consumers-mobile-card__value {
+  font-size: 13px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.consumers-mobile-card__value.mono {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+}
+
+.consumers-mobile-card__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.consumers-detail {
+  padding: 16px 20px;
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.consumers-detail__badges {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.consumers-detail__kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+  margin-bottom: 16px;
+}
+
+.consumers-detail__section-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin: 16px 0 7px;
+}
+
+.consumers-detail__section-title:first-of-type {
+  margin-top: 0;
+}
+
+.consumers-detail__hint {
+  font-size: 11px;
+  color: var(--text3);
+  margin-bottom: 7px;
+}
+
+@media (max-width: 900px) {
+  .consumers-toolbar__actions {
+    width: 100%;
+  }
+
+  .consumers-toolbar__actions .btn {
+    flex: 1 1 calc(50% - 4px);
+    justify-content: center;
+  }
+
+  .consumers-filters select.inp {
+    flex: 1 1 calc(50% - 4px);
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .consumers-table-desk {
+    display: none;
+  }
+
+  .consumers-mobile-list {
+    display: block;
+  }
+
+  .consumers-filters__search {
+    flex: 1 1 100% !important;
+  }
+
+  .consumers-filters select.inp {
+    flex: 1 1 100%;
+  }
+
+  .consumers-detail {
+    padding: 12px 14px;
+  }
+
+  .consumers-detail__kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 400px) {
+  .consumers-mobile-card__grid {
+    grid-template-columns: 1fr;
+  }
+}

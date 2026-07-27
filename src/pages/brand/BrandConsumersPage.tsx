@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { consumersApi } from '../../api/consumers';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Card, CardHeader } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
+import { FilterBar } from '../../components/ui/FilterBar';
 import { KCard, KCardGrid } from '../../components/ui/KCard';
 import { Modal, ModalFooter } from '../../components/ui/Modal';
 import { PageHeader } from '../../components/ui/PageHeader';
@@ -23,10 +24,10 @@ function statusVariant(s: ConsumerStatus): 'bg' | 'br' | 'bx' {
   return 'bx';
 }
 
-function PointsCell({ points, progress }: { points: number; progress: number }) {
+function PointsBar({ points, progress }: { points: number; progress: number }) {
   const near = progress >= 90;
   return (
-    <td>
+    <div>
       <strong>{points}</strong> pts
       <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
         <div
@@ -51,7 +52,7 @@ function PointsCell({ points, progress }: { points: number; progress: number }) 
           {progress}/100
         </span>
       </div>
-    </td>
+    </div>
   );
 }
 
@@ -109,7 +110,6 @@ export function BrandConsumersPage() {
       showToast('Directory filtered to consumers one scan from their next gift.', 'success');
       setSearchParams({}, { replace: true });
     }
-    // only on mount for deep-link toast
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -138,13 +138,14 @@ export function BrandConsumersPage() {
       try {
         await consumersApi.revealPii('Consumer Directory PII reveal toggle');
         setReveal(true);
-        showToast('Full PII revealed — this action is audit-logged.', 'warn');
+        showToast('Full phone numbers and emails revealed — this action is audit-logged.', 'warn');
       } catch (e) {
         showToast(e instanceof Error ? e.message : 'Could not audit PII reveal.');
       }
       return;
     }
     setReveal(false);
+    showToast('PII hidden again.', 'success');
   };
 
   const exportCsv = async () => {
@@ -215,35 +216,28 @@ export function BrandConsumersPage() {
         />
       </KCardGrid>
 
-      <Card>
-        <CardHeader
-          title="Consumer records"
-          action={
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Button variant="secondary" size="sm" onClick={() => void toggleReveal()}>
-                {reveal ? '🔓 Hide full PII' : '🔒 Reveal full PII'}
-              </Button>
-              <select
-                className="inp bsm"
-                style={{ maxWidth: 150, fontSize: 12 }}
-                defaultValue=""
-                aria-label="Export consumers"
-                onChange={(e) => {
-                  if (e.target.value === 'csv') void exportCsv();
-                  e.target.value = '';
-                }}
-              >
-                <option value="">⬇ Export…</option>
-                <option value="csv">CSV (.csv)</option>
-              </select>
+      <Card className="consumers-card">
+        <div className="consumers-toolbar">
+          <div className="consumers-toolbar__title">
+            <div className="ct">Consumer records</div>
+            <div className="consumers-toolbar__meta">
+              {selectedCount ? `${selectedCount} selected` : 'None selected'}
+              {reveal ? ' · PII visible' : ' · PII masked'}
             </div>
-          }
-        />
+          </div>
+          <div className="consumers-toolbar__actions">
+            <Button variant="secondary" size="sm" onClick={() => void toggleReveal()}>
+              {reveal ? 'Hide full PII' : 'Reveal full PII'}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => void exportCsv()}>
+              Export CSV
+            </Button>
+          </div>
+        </div>
 
-        <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap', marginBottom: 12 }}>
+        <FilterBar className="consumers-filters">
           <input
-            className="inp"
-            style={{ flex: 1, minWidth: 150 }}
+            className="inp consumers-filters__search"
             placeholder="Search name, phone or email…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
@@ -251,7 +245,6 @@ export function BrandConsumersPage() {
           />
           <select
             className="inp"
-            style={{ width: 140 }}
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             aria-label="Filter by status"
@@ -263,7 +256,6 @@ export function BrandConsumersPage() {
           </select>
           <select
             className="inp"
-            style={{ width: 180 }}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             aria-label="Filter by activity"
@@ -274,103 +266,162 @@ export function BrandConsumersPage() {
             <option value="unredeemed">Has unredeemed gifts</option>
             <option value="reports">Has counterfeit reports</option>
           </select>
-        </div>
-
-        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 7 }}>
-          {selectedCount ? `${selectedCount} selected` : 'None selected'} · tick rows to export a
-          subset, or export all filtered rows.
-        </div>
+        </FilterBar>
 
         {loading ? (
           <div style={{ padding: 20, color: 'var(--text3)' }}>Loading consumers…</div>
         ) : error ? (
           <div style={{ padding: 20, color: 'var(--rt)' }}>{error}</div>
         ) : (
-          <TableWrap minWidth={960}>
-            <table>
-              <thead>
-                <tr>
-                  <th style={{ width: 34 }}>
-                    <input
-                      type="checkbox"
-                      checked={rows.length > 0 && selectedCount === rows.length}
-                      onChange={(e) => toggleAll(e.target.checked)}
-                      aria-label="Select all consumers"
-                    />
-                  </th>
-                  <th>Consumer</th>
-                  <th>Phone</th>
-                  <th>Email</th>
-                  <th>Auths</th>
-                  <th>Points / Next gift</th>
-                  <th>Gifts Won</th>
-                  <th>Redeemed</th>
-                  <th>Reports</th>
-                  <th>Status</th>
-                  <th />
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.id}>
-                    <td>
-                      <input
-                        type="checkbox"
-                        checked={selected.has(r.id)}
-                        onChange={(e) => toggleOne(r.id, e.target.checked)}
-                        aria-label={`Select ${r.name}`}
-                      />
-                    </td>
-                    <td>
-                      <strong>{r.name}</strong>
-                      <div style={{ fontSize: 11, color: 'var(--text3)' }}>Joined {r.joined}</div>
-                    </td>
-                    <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{r.phone}</td>
-                    <td style={{ fontSize: 11 }}>{r.email}</td>
-                    <td>{r.authentications}</td>
-                    <PointsCell points={r.points} progress={r.progressToNextGift} />
-                    <td>{r.giftsWon}</td>
-                    <td>{r.giftsRedeemed}</td>
-                    <td>
-                      {r.reports ? (
-                        <Badge variant="br">{r.reports}</Badge>
-                      ) : (
-                        <span style={{ color: 'var(--text3)' }}>—</span>
-                      )}
-                    </td>
-                    <td>
+          <>
+            {/* Desktop / tablet table */}
+            <div className="consumers-table-desk">
+              <TableWrap minWidth={880}>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 34 }}>
+                        <input
+                          type="checkbox"
+                          checked={rows.length > 0 && selectedCount === rows.length}
+                          onChange={(e) => toggleAll(e.target.checked)}
+                          aria-label="Select all consumers"
+                        />
+                      </th>
+                      <th>Consumer</th>
+                      <th>Phone</th>
+                      <th>Email</th>
+                      <th>Auths</th>
+                      <th>Points / Next gift</th>
+                      <th>Gifts</th>
+                      <th>Reports</th>
+                      <th>Status</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r) => (
+                      <tr key={r.id}>
+                        <td>
+                          <input
+                            type="checkbox"
+                            checked={selected.has(r.id)}
+                            onChange={(e) => toggleOne(r.id, e.target.checked)}
+                            aria-label={`Select ${r.name}`}
+                          />
+                        </td>
+                        <td>
+                          <strong>{r.name}</strong>
+                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>Joined {r.joined}</div>
+                        </td>
+                        <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{r.phone}</td>
+                        <td style={{ fontSize: 11, wordBreak: 'break-all' }}>{r.email}</td>
+                        <td>{r.authentications}</td>
+                        <td>
+                          <PointsBar points={r.points} progress={r.progressToNextGift} />
+                        </td>
+                        <td>
+                          {r.giftsWon}
+                          <span style={{ color: 'var(--text3)', fontSize: 11 }}> / {r.giftsRedeemed} rdm</span>
+                        </td>
+                        <td>
+                          {r.reports ? (
+                            <Badge variant="br">{r.reports}</Badge>
+                          ) : (
+                            <span style={{ color: 'var(--text3)' }}>—</span>
+                          )}
+                        </td>
+                        <td>
+                          <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
+                        </td>
+                        <td>
+                          <Button size="sm" variant="secondary" onClick={() => void viewConsumer(r.id)}>
+                            View
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                    {rows.length === 0 && (
+                      <tr>
+                        <td colSpan={10} style={{ textAlign: 'center', color: 'var(--text3)', padding: 18 }}>
+                          No consumers match your search or filters.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </TableWrap>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="consumers-mobile-list">
+              {rows.length === 0 ? (
+                <div style={{ textAlign: 'center', color: 'var(--text3)', padding: 18 }}>
+                  No consumers match your search or filters.
+                </div>
+              ) : (
+                rows.map((r) => (
+                  <article key={r.id} className="consumers-mobile-card">
+                    <div className="consumers-mobile-card__top">
+                      <label className="consumers-mobile-card__check">
+                        <input
+                          type="checkbox"
+                          checked={selected.has(r.id)}
+                          onChange={(e) => toggleOne(r.id, e.target.checked)}
+                          aria-label={`Select ${r.name}`}
+                        />
+                      </label>
+                      <div className="consumers-mobile-card__identity">
+                        <strong>{r.name}</strong>
+                        <span>Joined {r.joined}</span>
+                      </div>
                       <Badge variant={statusVariant(r.status)}>{r.status}</Badge>
-                    </td>
-                    <td>
+                    </div>
+                    <div className="consumers-mobile-card__grid">
+                      <div>
+                        <span className="consumers-mobile-card__label">Phone</span>
+                        <span className="consumers-mobile-card__value mono">{r.phone}</span>
+                      </div>
+                      <div>
+                        <span className="consumers-mobile-card__label">Email</span>
+                        <span className="consumers-mobile-card__value">{r.email}</span>
+                      </div>
+                      <div>
+                        <span className="consumers-mobile-card__label">Auths</span>
+                        <span className="consumers-mobile-card__value">{r.authentications}</span>
+                      </div>
+                      <div>
+                        <span className="consumers-mobile-card__label">Gifts</span>
+                        <span className="consumers-mobile-card__value">
+                          {r.giftsWon} won · {r.giftsRedeemed} redeemed
+                        </span>
+                      </div>
+                      <div className="consumers-mobile-card__span2">
+                        <span className="consumers-mobile-card__label">Points / next gift</span>
+                        <PointsBar points={r.points} progress={r.progressToNextGift} />
+                      </div>
+                      {r.reports > 0 && (
+                        <div>
+                          <span className="consumers-mobile-card__label">Reports</span>
+                          <Badge variant="br">{r.reports}</Badge>
+                        </div>
+                      )}
+                    </div>
+                    <div className="consumers-mobile-card__actions">
                       <Button size="sm" variant="secondary" onClick={() => void viewConsumer(r.id)}>
-                        View
+                        View details
                       </Button>
-                    </td>
-                  </tr>
-                ))}
-                {rows.length === 0 && (
-                  <tr>
-                    <td colSpan={11} style={{ textAlign: 'center', color: 'var(--text3)', padding: 18 }}>
-                      No consumers match your search or filters.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </TableWrap>
+                    </div>
+                  </article>
+                ))
+              )}
+            </div>
+          </>
         )}
 
-        <div
-          style={{
-            marginTop: 11,
-            padding: '9px 11px',
-            background: 'var(--bb)',
-            borderRadius: 7,
-            fontSize: 11,
-            color: 'var(--bt)',
-          }}
-        >
-          ℹ {note ||
+        <div className="consumers-note">
+          ℹ{' '}
+          {note ||
             'Consumer personal data is masked by default. Revealing or exporting PII is recorded in the audit log. Handle in line with the Nigeria Data Protection Act (NDPA) 2023.'}
         </div>
       </Card>
@@ -380,9 +431,7 @@ export function BrandConsumersPage() {
         onClose={() => setDetail(null)}
         title={detail?.name || (detailLoading ? 'Loading…' : 'Consumer')}
         subtitle={
-          detail
-            ? `${detail.phone} · ${detail.email} · Joined ${detail.joined}`
-            : undefined
+          detail ? `${detail.phone} · ${detail.email} · Joined ${detail.joined}` : undefined
         }
         width={760}
         footer={
@@ -396,20 +445,13 @@ export function BrandConsumersPage() {
         {detailLoading && !detail ? (
           <div style={{ padding: '16px 20px', color: 'var(--text3)' }}>Loading consumer…</div>
         ) : detail ? (
-          <div style={{ padding: '16px 20px', maxHeight: '70vh', overflowY: 'auto' }}>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
+          <div className="consumers-detail">
+            <div className="consumers-detail__badges">
               <Badge variant={statusVariant(detail.status)}>{detail.status}</Badge>
               <Badge variant="bb">{detail.pointsToNextGift} pts to next gift</Badge>
             </div>
 
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(4, 1fr)',
-                gap: 9,
-                marginBottom: 16,
-              }}
-            >
+            <div className="consumers-detail__kpis">
               {[
                 { label: 'Points', value: detail.points },
                 { label: 'Authentications', value: detail.authentications },
@@ -425,23 +467,12 @@ export function BrandConsumersPage() {
               ))}
             </div>
 
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: 'var(--text2)',
-                textTransform: 'uppercase',
-                letterSpacing: 0.4,
-                marginBottom: 7,
-              }}
-            >
-              Recent authentications
-            </div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 7 }}>
+            <div className="consumers-detail__section-title">Recent authentications</div>
+            <div className="consumers-detail__hint">
               Each successful PIN authentication awards <strong>10 points</strong>. Showing the most
               recent scans.
             </div>
-            <TableWrap minWidth={560}>
+            <TableWrap minWidth={480}>
               <table>
                 <thead>
                   <tr>
@@ -475,19 +506,8 @@ export function BrandConsumersPage() {
               </table>
             </TableWrap>
 
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: 'var(--text2)',
-                textTransform: 'uppercase',
-                letterSpacing: 0.4,
-                margin: '16px 0 7px',
-              }}
-            >
-              Gifts won & redeemed
-            </div>
-            <TableWrap minWidth={640}>
+            <div className="consumers-detail__section-title">Gifts won & redeemed</div>
+            <TableWrap minWidth={520}>
               <table>
                 <thead>
                   <tr>
@@ -506,7 +526,9 @@ export function BrandConsumersPage() {
                       <td>{g.pool}</td>
                       <td>{g.won}</td>
                       <td>
-                        <Badge variant={g.statusRaw === 'REDEEMED' || g.status === 'Redeemed' ? 'bg' : 'ba'}>
+                        <Badge
+                          variant={g.statusRaw === 'REDEEMED' || g.status === 'Redeemed' ? 'bg' : 'ba'}
+                        >
                           {g.status}
                         </Badge>
                       </td>
@@ -528,19 +550,8 @@ export function BrandConsumersPage() {
               </table>
             </TableWrap>
 
-            <div
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                color: 'var(--text2)',
-                textTransform: 'uppercase',
-                letterSpacing: 0.4,
-                margin: '16px 0 7px',
-              }}
-            >
-              Counterfeit reports
-            </div>
-            <TableWrap minWidth={520}>
+            <div className="consumers-detail__section-title">Counterfeit reports</div>
+            <TableWrap minWidth={440}>
               <table>
                 <thead>
                   <tr>
