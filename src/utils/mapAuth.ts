@@ -49,6 +49,10 @@ export function mapLoginToProfile(data: Record<string, unknown>): TenantProfile 
     crmTier: data.crmTier as string | null | undefined,
     crmSeats: data.crmSeats as number | undefined,
     campaignStacking: data.campaignStacking as boolean | undefined,
+    giftRedemption:
+      accountType === 'admin'
+        ? true
+        : (data.giftRedemption as boolean | undefined),
     notificationPrefs: {
       ...DEFAULT_NOTIFICATION_PREFS,
       ...((data.notificationPrefs as Partial<NotificationPrefs>) || {}),

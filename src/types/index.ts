@@ -25,6 +25,8 @@ export type NavItem = {
   path: string;
   /** Badge key resolved from live tenant data */
   badgeKey?: 'actions' | 'fraud' | 'investigations' | 'notifications';
+  /** Hide unless user.giftRedemption is true (Brand Manager grant) */
+  requiresGiftRedemption?: boolean;
 };
 
 export interface NavSection {

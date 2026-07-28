@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { consumersApi } from '../../api/consumers';
 import { Badge } from '../../components/ui/Badge';
@@ -75,6 +75,8 @@ export function BrandConsumersPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [detail, setDetail] = useState<ConsumerDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [missingFullPhone, setMissingFullPhone] = useState(0);
+  const warnedMissingPhone = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,6 +91,7 @@ export function BrandConsumersPage() {
       setKpis(res.kpis);
       setRows(res.data || []);
       setNote(res.note || '');
+      setMissingFullPhone(res.revealMeta?.withoutFullPhone ?? 0);
       setSelected(new Set());
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load consumers.');
@@ -137,6 +140,7 @@ export function BrandConsumersPage() {
     if (!reveal) {
       try {
         await consumersApi.revealPii('Consumer Directory PII reveal toggle');
+        warnedMissingPhone.current = false;
         setReveal(true);
         showToast('Full phone numbers and emails revealed — this action is audit-logged.', 'warn');
       } catch (e) {
@@ -145,8 +149,21 @@ export function BrandConsumersPage() {
       return;
     }
     setReveal(false);
+    warnedMissingPhone.current = false;
     showToast('PII hidden again.', 'success');
   };
+
+  useEffect(() => {
+    if (!reveal || loading || warnedMissingPhone.current) return;
+    if (missingFullPhone > 0) {
+      warnedMissingPhone.current = true;
+      showToast(
+        `${missingFullPhone} consumer(s) only have a masked phone on file. Full number appears after they authenticate again.`,
+        'warn',
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reveal, loading, missingFullPhone]);
 
   const exportCsv = async () => {
     try {
@@ -223,6 +240,9 @@ export function BrandConsumersPage() {
             <div className="consumers-toolbar__meta">
               {selectedCount ? `${selectedCount} selected` : 'None selected'}
               {reveal ? ' · PII visible' : ' · PII masked'}
+              {reveal && missingFullPhone > 0
+                ? ` · ${missingFullPhone} phone(s) not fully stored yet`
+                : ''}
             </div>
           </div>
           <div className="consumers-toolbar__actions">

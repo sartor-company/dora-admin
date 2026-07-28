@@ -21,6 +21,7 @@ export const LEGACY_PAGE_PATHS: Record<string, string> = {
   'pg-inv-closed': '/investigations/closed',
   'pg-gifts-list': '/gifts',
   'pg-gifts-detail': '/gifts/detail',
+  'pg-gifts-redeem': '/gifts/redeem',
   'pg-gifts-analytics': '/gifts/analytics',
   'pg-notifications': '/notifications',
   'pg-reports': '/reports',

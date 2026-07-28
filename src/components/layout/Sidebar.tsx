@@ -63,7 +63,12 @@ export function Sidebar() {
           {config.nav.map((section) => (
             <div className="nsec" key={section.title}>
               <div className="nlbl">{section.title}</div>
-              {section.items.map((item) => {
+              {section.items
+                .filter((item) => {
+                  if (item.requiresGiftRedemption && !user?.giftRedemption) return false;
+                  return true;
+                })
+                .map((item) => {
                 const count = badgeFor(item.badgeKey);
                 return (
                 <NavLink

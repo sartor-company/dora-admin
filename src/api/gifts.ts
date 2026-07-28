@@ -9,6 +9,9 @@ import type {
   GiftCampaignComparison,
   GiftRedemption,
   GiftTriggerBreakdown,
+  RedeemGiftResult,
+  RedeemPoolStock,
+  RedeemTodayItem,
 } from '../types/gifts';
 
 export const giftsApi = {
@@ -70,6 +73,30 @@ export const giftsApi = {
   listRedemptions: async (params?: { campaignId?: string; status?: string; q?: string }) => {
     const res = await apiClient.get('/gifts/redemptions', { params });
     return unwrap<{ data: GiftRedemption[] }>(res).data;
+  },
+
+  redeemPools: async () => {
+    const res = await apiClient.get('/gifts/redeem/pools');
+    return unwrap<{ data: RedeemPoolStock[] }>(res).data;
+  },
+
+  myRedemptionsToday: async () => {
+    const res = await apiClient.get('/gifts/redeem/mine-today');
+    return unwrap<{ data: RedeemTodayItem[]; actor?: string }>(res).data;
+  },
+
+  redeemGift: async (body: { code: string; method: 'QR_SCAN' | 'MANUAL_ENTRY' }) => {
+    const res = await apiClient.post('/gifts/redeem', body);
+    // Server returns outcome payloads with status true|false; always surface data.
+    const payload = res.data as {
+      status: boolean;
+      message: string;
+      data: RedeemGiftResult;
+    };
+    if (!payload?.data?.outcome) {
+      throw new Error(payload?.message || 'Redeem failed');
+    }
+    return payload.data;
   },
 
   analyticsOverview: async (days = 30) => {

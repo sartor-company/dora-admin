@@ -99,6 +99,37 @@ export interface GiftRedemption {
   statusRaw: string;
 }
 
+export interface RedeemPoolStock {
+  campaignId: string;
+  campaignName: string;
+  poolId: string;
+  giftId: string;
+  name: string;
+  trigger: string;
+  qty: number;
+  lowStockThreshold: number;
+}
+
+export interface RedeemTodayItem {
+  _id: string;
+  gift: string;
+  consumer: string;
+  method: string;
+  time: string;
+}
+
+export type RedeemOutcome = 'SUCCESS' | 'ALREADY_REDEEMED' | 'PENDING_STOCK' | 'INVALID';
+
+export interface RedeemGiftResult {
+  outcome: RedeemOutcome;
+  title: string;
+  subtitle: string;
+  rows?: [string, string][];
+  giftName?: string;
+  remaining?: number;
+  confirmationQueued?: boolean;
+}
+
 export interface CreatePoolGiftInput {
   name: string;
   description?: string;

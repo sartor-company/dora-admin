@@ -34,6 +34,10 @@ export type ConsumerDirectoryResponse = {
   kpis: ConsumerDirectoryKpis;
   data: ConsumerListItem[];
   note?: string;
+  revealMeta?: {
+    withFullPhone: number;
+    withoutFullPhone: number;
+  };
 };
 
 export type ConsumerAuthRow = {
@@ -71,6 +75,7 @@ export type ConsumerDetail = {
   name: string;
   phone: string;
   email: string;
+  hasFullPhone?: boolean;
   joined: string;
   status: ConsumerStatus;
   points: number;

@@ -49,6 +49,7 @@ export interface TenantProfile {
   crmTier?: string | null;
   crmSeats?: number;
   campaignStacking?: boolean;
+  giftRedemption?: boolean;
   notificationPrefs?: NotificationPrefs;
   platformStatus?: string;
   pilotDaysRemaining?: number;

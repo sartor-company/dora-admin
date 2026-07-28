@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<title>Sartor Gift Redemption &mdash; Rep Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --navy:#0B1640; --navy2:#132155; --accent:#FF5C35; --green:#0D7A4E; --green-bg:#E3F6EE;
+  --red:#B3261E; --red-bg:#FDEAEA; --amber:#8A5A00; --amber-bg:#FFF4DC;
+  --bg:#F4F6FA; --card:#FFFFFF; --border:#E3E7EF; --text:#10162E; --text2:#4A5570; --text3:#8892AB;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{height:100%}
+body{font-family:'DM Sans',system-ui,sans-serif;background:var(--bg);color:var(--text);
+  min-height:100%;font-size:15px;display:flex;flex-direction:column}
+.mono{font-family:'DM Mono',monospace}
+
+/* ---------- top bar ---------- */
+header{background:var(--navy);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;position:sticky;top:0;z-index:20}
+.brand{display:flex;align-items:center;gap:9px;min-width:0}
+.logo{width:32px;height:32px;border-radius:8px;background:var(--accent);display:grid;place-items:center;font-weight:700;font-size:14px;flex-shrink:0}
+.bname{font-weight:700;font-size:14px;line-height:1.15}
+.bsub{font-size:10.5px;color:rgba(255,255,255,.62)}
+.rep{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.rav{width:31px;height:31px;border-radius:50%;background:#1F3A93;display:grid;place-items:center;font-size:11.5px;font-weight:700}
+.rmeta{text-align:right;line-height:1.2}
+.rname{font-size:12px;font-weight:600}
+.rid{font-size:10px;color:rgba(255,255,255,.6)}
+
+main{flex:1;width:100%;max-width:620px;margin:0 auto;padding:14px 14px 30px}
+
+.card{background:var(--card);border:1px solid var(--border);border-radius:13px;padding:15px;margin-bottom:13px}
+.ct{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:11px}
+
+/* ---------- method toggle ---------- */
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px}
+.seg button{padding:13px 8px;border-radius:11px;border:1.5px solid var(--border);background:#fff;font-family:inherit;
+  font-size:14px;font-weight:600;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:7px;transition:.15s}
+.seg button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+
+/* ---------- scanner ---------- */
+.scanner{position:relative;aspect-ratio:1/1;max-height:320px;margin:0 auto 13px;background:#0A0F1F;border-radius:14px;overflow:hidden;display:grid;place-items:center}
+.vf{position:absolute;inset:16%;border-radius:12px}
+.vf span{position:absolute;width:30px;height:30px;border:3px solid var(--accent)}
+.vf span:nth-child(1){top:0;left:0;border-right:0;border-bottom:0;border-radius:10px 0 0 0}
+.vf span:nth-child(2){top:0;right:0;border-left:0;border-bottom:0;border-radius:0 10px 0 0}
+.vf span:nth-child(3){bottom:0;left:0;border-right:0;border-top:0;border-radius:0 0 0 10px}
+.vf span:nth-child(4){bottom:0;right:0;border-left:0;border-top:0;border-radius:0 0 10px 0}
+.laser{position:absolute;left:16%;right:16%;height:2px;background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation:sweep 2.2s ease-in-out infinite;box-shadow:0 0 12px var(--accent)}
+@keyframes sweep{0%,100%{top:20%}50%{top:78%}}
+.scanhint{position:absolute;bottom:11px;left:0;right:0;text-align:center;color:rgba(255,255,255,.72);font-size:11.5px}
+
+/* ---------- inputs / buttons ---------- */
+label.fl{display:block;font-size:12px;font-weight:600;color:var(--text2);margin-bottom:6px}
+input.pin{width:100%;padding:15px 14px;border:1.5px solid var(--border);border-radius:11px;font-family:'DM Mono',monospace;
+  font-size:17px;letter-spacing:1.4px;text-align:center;text-transform:uppercase;background:#fff;color:var(--text)}
+input.pin:focus{outline:0;border-color:var(--navy)}
+.btn{width:100%;padding:15px;border:0;border-radius:11px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.bpri{background:var(--accent);color:#fff}
+.bnav{background:var(--navy);color:#fff}
+.bsec{background:#fff;color:var(--text2);border:1.5px solid var(--border)}
+.btn:active{transform:translateY(1px)}
+.btn[disabled]{opacity:.55;cursor:not-allowed}
+
+/* ---------- pools ---------- */
+.pool{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.pool:last-child{border-bottom:0}
+.pn{font-size:13.5px;font-weight:600}
+.pt{font-size:10.5px;color:var(--text3);margin-top:1px}
+.pq{text-align:right;flex-shrink:0}
+.pqv{font-size:17px;font-weight:700;font-family:'DM Mono',monospace}
+.pql{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px}
+.low .pqv{color:var(--amber)}
+.out .pqv{color:var(--red)}
+.flash{animation:flash 1.1s ease}
+@keyframes flash{0%{background:var(--green-bg)}100%{background:transparent}}
+
+/* ---------- result ---------- */
+.overlay{position:fixed;inset:0;background:rgba(8,14,32,.72);display:none;align-items:flex-end;justify-content:center;z-index:60;padding:0}
+.overlay.open{display:flex}
+.sheet{background:#fff;width:100%;max-width:620px;border-radius:18px 18px 0 0;padding:22px 18px calc(20px + env(safe-area-inset-bottom));
+  max-height:92vh;overflow-y:auto;animation:rise .22s ease}
+@keyframes rise{from{transform:translateY(26px);opacity:.4}to{transform:translateY(0);opacity:1}}
+.rico{width:66px;height:66px;border-radius:50%;display:grid;place-items:center;font-size:32px;margin:0 auto 13px}
+.ok .rico{background:var(--green-bg);color:var(--green)}
+.bad .rico{background:var(--red-bg);color:var(--red)}
+.warn .rico{background:var(--amber-bg);color:var(--amber)}
+.rtitle{text-align:center;font-size:21px;font-weight:700;margin-bottom:5px}
+.ok .rtitle{color:var(--green)} .bad .rtitle{color:var(--red)} .warn .rtitle{color:var(--amber)}
+.rsub{text-align:center;font-size:13px;color:var(--text2);margin-bottom:17px}
+.kv{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-bottom:1px solid var(--border);font-size:13.5px}
+.kv:last-of-type{border-bottom:0}
+.kv .k{color:var(--text3);flex-shrink:0}
+.kv .v{font-weight:600;text-align:right}
+.giftbox{background:var(--green-bg);border:1px solid #BFE7D5;border-radius:11px;padding:13px;text-align:center;margin:14px 0}
+.giftlbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.5px;color:var(--green);font-weight:700}
+.giftname{font-size:19px;font-weight:700;color:var(--green);margin-top:3px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:11px}
+.chip{background:#fff;border:1px solid #BFE7D5;color:var(--green);border-radius:20px;padding:5px 11px;font-size:11.5px;font-weight:600}
+
+/* ---------- log ---------- */
+.log{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px}
+.log:last-child{border-bottom:0}
+.ldot{width:8px;height:8px;border-radius:50%;background:var(--green);flex-shrink:0}
+.lmain{flex:1;min-width:0}
+.lg{font-weight:600}
+.lc{font-size:11px;color:var(--text3)}
+.lt{font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;flex-shrink:0}
+.empty{text-align:center;color:var(--text3);font-size:12.5px;padding:14px 0}
+
+.note{background:#EEF3FF;border-radius:9px;padding:10px 12px;font-size:11.5px;color:#2A3F7A;line-height:1.5}
+.hide{display:none!important}
+@media(max-width:420px){ main{padding:12px 11px 26px} .seg button{font-size:13px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">S</div>
+    <div>
+      <div class="bname">Gift Redemption</div>
+      <div class="bsub">Sartor Health Co. Ltd</div>
+    </div>
+  </div>
+  <div class="rep">
+    <div class="rmeta">
+      <div class="rname">Mike Obi</div>
+      <div class="rid mono">REP-0417 &middot; Ikeja</div>
+    </div>
+    <div class="rav">MO</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- METHOD -->
+  <div class="card">
+    <div class="ct">Redeem a gift</div>
+    <div class="seg">
+      <button id="tab-qr" class="on" onclick="setMode('qr')">&#128247; Scan QR</button>
+      <button id="tab-pin" onclick="setMode('pin')">&#9000;&#65039; Enter PIN</button>
+    </div>
+
+    <!-- QR -->
+    <div id="pane-qr">
+      <div class="scanner">
+        <div class="vf"><span></span><span></span><span></span><span></span></div>
+        <div class="laser"></div>
+        <div class="scanhint">Scan the QR from the customer&rsquo;s e-mail or SMS link</div>
+      </div>
+      <button class="btn bpri" onclick="simulateScan()">&#128248; Capture code</button>
+      <div style="text-align:center;font-size:11px;color:var(--text3);margin-top:9px">
+        Camera access is required on a live device. Demo codes below.
+      </div>
+    </div>
+
+    <!-- PIN -->
+    <div id="pane-pin" class="hide">
+      <label class="fl" for="pinbox">Redemption code from the customer&rsquo;s e-mail or SMS</label>
+      <input id="pinbox" class="pin" placeholder="RDM-XXXXXXXXXX" maxlength="14" autocomplete="off"
+             oninput="this.value=this.value.toUpperCase()" onkeydown="if(event.key==='Enter')submitPin()">
+      <div style="height:11px"></div>
+      <button class="btn bnav" onclick="submitPin()">Verify &amp; redeem</button>
+      <div style="text-align:center;font-size:11px;color:var(--text3);margin-top:9px">
+        Try: <span class="mono">RDM-G1V6W2X8Y4</span> &middot; <span class="mono">RDM-M9P4Q7R2S5</span><br>Used: <span class="mono">RDM-A7K2M9P4X1</span> &middot; No stock: <span class="mono">RDM-K3H8J2L6M9</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- POOLS -->
+  <div class="card">
+    <div class="ct">Gift pool stock &mdash; live</div>
+    <div id="pools"></div>
+  </div>
+
+  <!-- LOG -->
+  <div class="card">
+    <div class="ct">My redemptions &mdash; today</div>
+    <div id="log"><div class="empty">No redemptions yet today.</div></div>
+  </div>
+
+  <div class="note">
+    &#8505; The redemption code is <strong>RDM-</strong> plus the 10-digit PIN from the product. When the gift is awarded the customer receives it by <strong>e-mail</strong> (with the QR image) and by <strong>SMS</strong> (code plus a link to the QR). Each code is single-use: on success the gift pool decrements automatically, the customer receives a collection confirmation, and the redemption is recorded against your rep ID.
+  </div>
+
+</main>
+
+<!-- RESULT SHEET -->
+<div class="overlay" id="ov" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet" id="sheet"></div>
+</div>
+
+<script>
+/* ---------------- demo data ---------------- */
+const POOLS = {
+  welcome:  {name:'Welcome Pack',            trigger:'FIRST_AUTH',      qty:180},
+  credit:   {name:'\u20A6500 Store Credit',  trigger:'NTH_AUTH',        qty:290},
+  delivery: {name:'Free Delivery Voucher',   trigger:'NTH_AUTH',        qty:64},
+  hamper:   {name:'Premium Gift Hamper',     trigger:'MONTHLY_TOP_10',  qty:0}
+};
+
+/* redemption codes presented by customers */
+const CODES = {
+  /* code = RDM- + the 10-digit alphanumeric scratch PIN on the product body.
+     The consumer receives this code (plus a QR of it) by e-mail / WhatsApp when the gift is awarded. */
+  'RDM-G1V6W2X8Y4':{consumer:'Aisha Bello',      phone:'+2347033013378', pool:'credit',   batch:'BATCH-042', product:'Sartor Hand Sanitiser 500ml', awarded:'Apr 08, 2026', used:false},
+  'RDM-M9P4Q7R2S5':{consumer:'Ngozi Eze',        phone:'+2348052207765', pool:'delivery', batch:'BATCH-037', product:'Silicone Holder/Hook Pack',   awarded:'Apr 09, 2026', used:false},
+  'RDM-D2F7H1J5K9':{consumer:'Emeka Nwosu',      phone:'+2348098812440', pool:'delivery', batch:'BATCH-040', product:'Sartor Hand Sanitiser 250ml', awarded:'Apr 15, 2026', used:false},
+  'RDM-Q8W3X9Y5Z1':{consumer:'Folake Adebayo',   phone:'+2348024455190', pool:'credit',   batch:'BATCH-042', product:'Sartor Hand Sanitiser 500ml', awarded:'Apr 13, 2026', used:false},
+  'RDM-A7K2M9P4X1':{consumer:'Chidinma Okafor',  phone:'+2348031234521', pool:'credit',   batch:'BATCH-042', product:'Sartor Hand Sanitiser 500ml', awarded:'Apr 15, 2026', used:true,
+                    usedAt:'Apr 15, 2026 14:32', usedBy:'Mike O.'},
+  'RDM-K3H8J2L6M9':{consumer:'Tunde Adeyemi',    phone:'+2348177449021', pool:'hamper',   batch:'BATCH-042', product:'Sartor Hand Sanitiser 500ml', awarded:'Apr 12, 2026', used:false}
+};
+
+let mode='qr', busy=false;
+const REDEEMED=[];
+
+/* ---------------- ui ---------------- */
+function setMode(m){
+  mode=m;
+  document.getElementById('tab-qr').classList.toggle('on',m==='qr');
+  document.getElementById('tab-pin').classList.toggle('on',m==='pin');
+  document.getElementById('pane-qr').classList.toggle('hide',m!=='qr');
+  document.getElementById('pane-pin').classList.toggle('hide',m!=='pin');
+  if(m==='pin') setTimeout(()=>document.getElementById('pinbox').focus(),80);
+}
+
+function renderPools(flashKey){
+  const box=document.getElementById('pools'); box.innerHTML='';
+  Object.keys(POOLS).forEach(k=>{
+    const p=POOLS[k];
+    const cls = p.qty===0 ? 'out' : (p.qty<80 ? 'low' : '');
+    box.insertAdjacentHTML('beforeend',
+      '<div class="pool '+cls+(flashKey===k?' flash':'')+'">'+
+        '<div><div class="pn">'+p.name+'</div><div class="pt">'+p.trigger+'</div></div>'+
+        '<div class="pq"><div class="pqv">'+p.qty+'</div><div class="pql">'+(p.qty===0?'Out of stock':'remaining')+'</div></div>'+
+      '</div>');
+  });
+}
+
+function renderLog(){
+  const box=document.getElementById('log');
+  if(!REDEEMED.length){ box.innerHTML='<div class="empty">No redemptions yet today.</div>'; return; }
+  box.innerHTML='';
+  REDEEMED.slice().reverse().forEach(r=>{
+    box.insertAdjacentHTML('beforeend',
+      '<div class="log"><div class="ldot"></div><div class="lmain">'+
+      '<div class="lg">'+r.gift+'</div><div class="lc">'+r.consumer+' &middot; '+r.method+'</div></div>'+
+      '<div class="lt">'+r.time+'</div></div>');
+  });
+}
+
+function nowTime(){
+  const d=new Date();
+  return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+}
+
+/* ---------------- redemption ---------------- */
+function simulateScan(){
+  if(busy) return;
+  const open=Object.keys(CODES).filter(c=>!CODES[c].used);
+  const good=open.filter(c=>POOLS[CODES[c].pool].qty>0);
+  const pick=good.length?good:open;
+  const code = pick.length ? pick[Math.floor(Math.random()*pick.length)] : 'RDM-A7K2M9P4X1';
+  process(code,'QR Scan');
+}
+
+function submitPin(){
+  if(busy) return;
+  const v=(document.getElementById('pinbox').value||'').trim().toUpperCase();
+  if(!v){ showResult('warn','Enter a code','Type the redemption code shown by the customer.',null); return; }
+  process(v,'Manual Entry');
+}
+
+function process(code,method){
+  busy=true;
+  const rec=CODES[code];
+
+  /* invalid */
+  if(!rec){
+    busy=false;
+    showResult('bad','Code not recognised','This code is not a valid Sartor redemption code. Check and try again.',
+      [['Code entered',code],['Method',method]]);
+    return;
+  }
+  /* already redeemed */
+  if(rec.used){
+    busy=false;
+    showResult('bad','Already redeemed','This gift has already been collected. It cannot be redeemed twice.',
+      [['Customer',rec.consumer],['Gift',POOLS[rec.pool].name],['Redeemed',rec.usedAt||'earlier'],['By rep',rec.usedBy||'\u2014']]);
+    return;
+  }
+  /* out of stock */
+  const pool=POOLS[rec.pool];
+  if(pool.qty<=0){
+    busy=false;
+    showResult('warn','Gift out of stock','This pool is depleted. The customer keeps their entitlement \u2014 it is queued as PENDING_STOCK and they will be notified when restocked.',
+      [['Customer',rec.consumer],['Gift',pool.name],['Pool',pool.trigger],['Status','PENDING_STOCK']]);
+    return;
+  }
+
+  /* success */
+  rec.used=true;
+  rec.usedAt=new Date().toLocaleString();
+  rec.usedBy='Mike O.';
+  pool.qty -= 1;
+  const t=nowTime();
+  REDEEMED.push({gift:pool.name,consumer:rec.consumer,method:method,time:t});
+  renderPools(rec.pool);
+  renderLog();
+  busy=false;
+  document.getElementById('pinbox').value='';
+
+  showResult('ok','Redemption successful','Hand the gift to the customer.',
+    [['Customer',rec.consumer],
+     ['Phone',rec.phone.slice(0,6)+'***'+rec.phone.slice(-4)],
+     ['Product authenticated',rec.product],
+     ['Batch',rec.batch],
+     ['Pool',pool.trigger],
+     ['Gift awarded',rec.awarded],
+     ['Redemption code',code],
+     ['Redeemed by','Mike Obi \u00b7 REP-0417'],
+     ['Time',t]],
+    pool.name, pool.qty);
+}
+
+function showResult(kind,title,sub,rows,giftName,left){
+  const s=document.getElementById('sheet');
+  s.className='sheet '+kind;
+  const icon = kind==='ok' ? '&#10003;' : (kind==='bad' ? '&#10005;' : '!');
+  let html='<div class="rico">'+icon+'</div><div class="rtitle">'+title+'</div><div class="rsub">'+sub+'</div>';
+  if(giftName){
+    html+='<div class="giftbox"><div class="giftlbl">Gift to hand over</div><div class="giftname">'+giftName+'</div>'+
+          '<div class="chips"><span class="chip">&#9993; E-mail sent</span><span class="chip">&#128241; SMS sent</span></div><div style="font-size:10.5px;color:var(--text2);margin-top:8px">Collection confirmation sent to the customer</div></div>';
+  }
+  if(rows&&rows.length){
+    html+='<div style="margin-top:4px">';
+    rows.forEach(r=>{html+='<div class="kv"><span class="k">'+r[0]+'</span><span class="v">'+r[1]+'</span></div>';});
+    html+='</div>';
+  }
+  if(typeof left==='number'){
+    html+='<div style="text-align:center;font-size:12px;color:var(--text3);margin-top:13px">Pool stock updated &mdash; <strong class="mono">'+left+'</strong> remaining</div>';
+  }
+  html+='<div style="height:16px"></div><button class="btn '+(kind==='ok'?'bnav':'bsec')+'" onclick="closeSheet()">Done</button>';
+  s.innerHTML=html;
+  document.getElementById('ov').classList.add('open');
+}
+
+function closeSheet(){
+  document.getElementById('ov').classList.remove('open');
+  if(mode==='pin') setTimeout(()=>document.getElementById('pinbox').focus(),60);
+}
+
+renderPools(); renderLog();
+</script>
+</body>
+</html>

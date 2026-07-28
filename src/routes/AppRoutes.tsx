@@ -18,6 +18,7 @@ import { BrandSettingsPage } from '../pages/brand/BrandSettingsPage';
 import { GiftsAnalyticsPage } from '../pages/gifts/GiftsAnalyticsPage';
 import { GiftsDetailPage } from '../pages/gifts/GiftsDetailPage';
 import { GiftsListPage } from '../pages/gifts/GiftsListPage';
+import { RedeemGiftPage } from '../pages/gifts/RedeemGiftPage';
 import { InvClosedPage } from '../pages/investigations/InvClosedPage';
 import { InvDashboardPage } from '../pages/investigations/InvDashboardPage';
 import { InvDetailPage } from '../pages/investigations/InvDetailPage';
@@ -69,6 +70,7 @@ export function AppRoutes() {
           <Route path="investigations/closed" element={<InvClosedPage />} />
           <Route path="gifts" element={<GiftsListPage />} />
           <Route path="gifts/detail" element={<GiftsDetailPage />} />
+          <Route path="gifts/redeem" element={<RedeemGiftPage />} />
           <Route path="gifts/analytics" element={<GiftsAnalyticsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="invoices" element={<InvoicesPage />} />

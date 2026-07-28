@@ -47,14 +47,50 @@ export interface FraudAnalytics {
   }[];
 }
 
+export interface LoyaltyCohortRow {
+  label: string;
+  key: string;
+  consumers: number;
+  /** M0–M5 retention %; null = month not yet elapsed */
+  months: (number | null)[];
+}
+
+export interface LoyaltyEntitlementAging {
+  age: string;
+  gifts: number;
+  share: number;
+}
+
 export interface LoyaltyAnalytics {
   days: number;
   kpis: {
+    registeredConsumers?: number;
+    registeredTrendPct?: number | null;
+    repeatRateMonth2?: number | null;
+    repeatRateCompare?: { rate: number | null; label: string } | null;
+    nearNextGift?: number;
+    giftsAwaitingCollection?: number;
+    giftsAwaitingOver60d?: number;
     activeConsumers: number;
     newRegistrations: number;
     pointsIssued: number;
     redemptionRate: number | null;
   };
+  pointsTriggers?: {
+    authentications: number;
+    pointsAwarded: number;
+    nearNextGift: number;
+  };
+  entitlements?: {
+    awarded: number;
+    redeemed: number;
+    awaiting: number;
+    aging: LoyaltyEntitlementAging[];
+    medianDaysToCollection: number | null;
+    pendingStock: number;
+  };
+  cohorts?: LoyaltyCohortRow[];
+  cohortNote?: string | null;
   gifts: unknown[];
   note?: string;
 }
