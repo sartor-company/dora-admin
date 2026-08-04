@@ -26,8 +26,10 @@ export interface TenantProfile {
   fullName: string;
   /** Primary contact person (tenant owner settings) */
   contactName?: string;
-  /** Staff member display name when accountType is user */
+  /** Staff member display name when accountType is user; contact name for owner */
   displayName?: string;
+  /** Human role label for redemption UI (Name · Role) */
+  roleLabel?: string;
   email: string;
   token: string;
   accountType: 'admin' | 'user';

@@ -17,6 +17,7 @@ interface AppContextValue {
   role: RoleId;
   setRole: (role: RoleId) => void;
   displayUser: string;
+  displayRole: string;
   clientType: ClientType;
   currency: CurrencyCode;
   setCurrency: (code: CurrencyCode) => void;
@@ -55,7 +56,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const isReadOnly = role === 'brand' || role === 'inv';
   const clientType: ClientType = user?.engagement === 'pilot' ? 'pilot' : 'full';
   const companyName = user?.fullName || 'Sartor Client';
-  const displayUser = user?.displayName || ROLES[role].user;
+  // Prefer real person name; never fall back to mock ROLES[role].user for live sessions.
+  const displayUser =
+    user?.displayName ||
+    user?.contactName ||
+    (user?.accountType === 'user' ? user?.fullName : undefined) ||
+    user?.email ||
+    'Signed-in user';
+  const displayRole =
+    user?.roleLabel ||
+    ROLES[role]?.label ||
+    'Staff';
   const clientName =
     clientType === 'pilot' ? `${companyName} (Pilot)` : companyName;
 
@@ -100,6 +111,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       role,
       setRole,
       displayUser,
+      displayRole,
       clientType,
       currency,
       setCurrency,
@@ -124,6 +136,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       role,
       setRole,
       displayUser,
+      displayRole,
       clientType,
       currency,
       isReadOnly,

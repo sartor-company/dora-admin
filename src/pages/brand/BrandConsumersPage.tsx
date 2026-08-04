@@ -527,11 +527,13 @@ export function BrandConsumersPage() {
             </TableWrap>
 
             <div className="consumers-detail__section-title">Gifts won & redeemed</div>
-            <TableWrap minWidth={520}>
+            <TableWrap minWidth={640}>
               <table>
                 <thead>
                   <tr>
                     <th>Gift</th>
+                    <th>PIN Used</th>
+                    <th>Result</th>
                     <th>Pool</th>
                     <th>Won</th>
                     <th>Status</th>
@@ -541,8 +543,12 @@ export function BrandConsumersPage() {
                 </thead>
                 <tbody>
                   {detail.gifts.map((g, i) => (
-                    <tr key={`${g.gift}-${i}`}>
+                    <tr key={`${g.gift}-${g.pin}-${i}`}>
                       <td>{g.gift}</td>
+                      <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{g.pin || '—'}</td>
+                      <td>
+                        <Badge variant={g.result === 'Genuine' ? 'bg' : 'ba'}>{g.result || '—'}</Badge>
+                      </td>
                       <td>{g.pool}</td>
                       <td>{g.won}</td>
                       <td>
@@ -561,7 +567,7 @@ export function BrandConsumersPage() {
                   ))}
                   {detail.gifts.length === 0 && (
                     <tr>
-                      <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text3)', padding: 12 }}>
+                      <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text3)', padding: 12 }}>
                         No gifts won.
                       </td>
                     </tr>
@@ -571,11 +577,12 @@ export function BrandConsumersPage() {
             </TableWrap>
 
             <div className="consumers-detail__section-title">Counterfeit reports</div>
-            <TableWrap minWidth={440}>
+            <TableWrap minWidth={520}>
               <table>
                 <thead>
                   <tr>
                     <th>Ref</th>
+                    <th>PIN</th>
                     <th>Product</th>
                     <th>Batch</th>
                     <th>Reported</th>
@@ -584,8 +591,9 @@ export function BrandConsumersPage() {
                 </thead>
                 <tbody>
                   {detail.reports.map((r, i) => (
-                    <tr key={`${r.ref}-${i}`}>
+                    <tr key={`${r.ref}-${r.pin}-${i}`}>
                       <td>{r.ref}</td>
+                      <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{r.pin || '—'}</td>
                       <td>{r.product}</td>
                       <td>{r.batch}</td>
                       <td>{r.reported}</td>
@@ -596,7 +604,7 @@ export function BrandConsumersPage() {
                   ))}
                   {detail.reports.length === 0 && (
                     <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text3)', padding: 12 }}>
+                      <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text3)', padding: 12 }}>
                         No counterfeit reports filed.
                       </td>
                     </tr>

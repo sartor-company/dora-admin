@@ -17,10 +17,14 @@ function canAccessRedeemGift(opts: {
   giftRedemption?: boolean;
   role?: string;
 }): boolean {
+  // MD/CEO/Owner (tenant admin)
   if (opts.accountType === 'admin' || opts.consoleRole === 'owner') return true;
-  if (opts.consoleRole === 'brand') return opts.giftRedemption === true;
+  // Brand Manager & Batch Admin — default on (SC-DORA)
+  if (opts.consoleRole === 'brand' || opts.consoleRole === 'batch') return true;
   if (opts.giftRedemption === true) return true;
+  // Field roles (CRM-mirrored seats)
   if (opts.role === 'Sales Rep' || opts.role === 'Merchandiser') return true;
+  if (opts.role === 'Manager' || opts.role === 'Admin') return true;
   return false;
 }
 
@@ -31,7 +35,7 @@ function outcomeKind(outcome?: string): SheetKind {
 }
 
 export function RedeemGiftPage() {
-  const { companyName, displayUser } = useApp();
+  const { companyName, displayUser, displayRole } = useApp();
   const user = useAuthStore((s) => s.user);
   const allowed = canAccessRedeemGift({
     accountType: user?.accountType,
@@ -216,7 +220,7 @@ export function RedeemGiftPage() {
         subtitle={`${companyName} · Staff gift collection`}
       />
       <RestrictBanner>
-        Scan or enter the customer’s RDM code. Redemption is verified server-side and logged against your account.
+        Scan or enter the customer’s authentication PIN (or RDM- code after redeem). Redemption is verified server-side and logged against your name and role.
       </RestrictBanner>
 
       <div className="rg-layout">
@@ -224,6 +228,7 @@ export function RedeemGiftPage() {
           <div className="rg-ct">Redeem a gift</div>
           <div className="rg-rep-line">
             Signed in as <strong>{displayUser}</strong>
+            {displayRole ? ` · ${displayRole}` : ''}
           </div>
           <div className="rg-seg">
             <button

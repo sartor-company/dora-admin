@@ -90,6 +90,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         title: 'Gift Engine',
         items: [
           { label: 'Campaigns', icon: 'gift', path: '/gifts' },
+          { label: 'Redeem Gift', icon: 'check', path: '/gifts/redeem' },
         ],
       },
       {
@@ -120,7 +121,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         title: 'Gift Engine',
         items: [
           { label: 'Campaigns', icon: 'gift', path: '/gifts' },
-          { label: 'Redeem Gift', icon: 'check', path: '/gifts/redeem', requiresGiftRedemption: true },
+          { label: 'Redeem Gift', icon: 'check', path: '/gifts/redeem' },
         ],
       },
       {

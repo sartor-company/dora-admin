@@ -27,7 +27,20 @@ export function mapLoginToProfile(data: Record<string, unknown>): TenantProfile 
     _id: data._id as string,
     fullName: companyName,
     contactName: (data.contactName as string) || undefined,
-    displayName: accountType === 'user' ? (data.fullName as string) : undefined,
+    displayName:
+      accountType === 'user'
+        ? (data.fullName as string)
+        : ((data.contactName as string) || undefined),
+    roleLabel:
+      accountType === 'admin'
+        ? 'Account Owner'
+        : consoleRole === 'brand'
+          ? 'Brand Manager'
+          : consoleRole === 'batch'
+            ? 'Batch Admin'
+            : consoleRole === 'inv'
+              ? 'Investigation Officer'
+              : (data.role as string) || undefined,
     email: data.email as string,
     token: data.token as string,
     accountType,
@@ -50,7 +63,7 @@ export function mapLoginToProfile(data: Record<string, unknown>): TenantProfile 
     crmSeats: data.crmSeats as number | undefined,
     campaignStacking: data.campaignStacking as boolean | undefined,
     giftRedemption:
-      accountType === 'admin'
+      accountType === 'admin' || consoleRole === 'brand' || consoleRole === 'batch'
         ? true
         : (data.giftRedemption as boolean | undefined),
     notificationPrefs: {

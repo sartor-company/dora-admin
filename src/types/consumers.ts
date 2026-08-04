@@ -54,6 +54,8 @@ export type ConsumerAuthRow = {
 export type ConsumerGiftRow = {
   gift: string;
   pool: string;
+  pin: string;
+  result: string;
   won: string;
   status: string;
   statusRaw?: string;
@@ -64,10 +66,12 @@ export type ConsumerGiftRow = {
 
 export type ConsumerReportRow = {
   ref: string;
+  pin: string;
   product: string;
   batch: string;
   reported: string;
   status: string;
+  result?: string;
 };
 
 export type ConsumerDetail = {

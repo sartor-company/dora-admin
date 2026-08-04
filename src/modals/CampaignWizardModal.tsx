@@ -35,7 +35,7 @@ function buildPools(pools: WizardPool[]) {
       trigger: pool.trigger as GiftTrigger,
       triggerConfig:
         pool.trigger === 'NTH_AUTH'
-          ? { nthValue: parseInt(pool.nthValue, 10) || 1 }
+          ? { nthValue: Math.max(2, parseInt(pool.nthValue, 10) || 10) }
           : pool.trigger === 'TOP_SCANNER'
             ? {
                 leaderboardPeriod: pool.leaderboardPeriod as 'CALENDAR_MONTH' | 'CAMPAIGN_PERIOD',
