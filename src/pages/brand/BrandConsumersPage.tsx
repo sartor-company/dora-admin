@@ -490,7 +490,8 @@ export function BrandConsumersPage() {
             <div className="consumers-detail__section-title">Recent authentications</div>
             <div className="consumers-detail__hint">
               Each successful PIN authentication awards <strong>10 points</strong>. Showing the most
-              recent scans.
+              recent scans. Welcome gift on 1st auth; next gift at <strong>100 pts</strong> (then 200,
+              300…).
             </div>
             <TableWrap minWidth={480}>
               <table>

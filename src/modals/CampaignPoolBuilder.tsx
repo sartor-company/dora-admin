@@ -240,8 +240,9 @@ export function CampaignPoolBuilder({ pools, onChange }: CampaignPoolBuilderProp
           marginTop: 12,
         }}
       >
-        ℹ FIRST_AUTH pools are always exempt from stacking rules — they fire regardless of the
-        stacking setting.
+        ℹ Welcome gift: FIRST_AUTH on the consumer’s 1st product auth (+10 pts). Next gifts unlock
+        every <strong>100 loyalty points</strong> (≈ 9 more authentications, then every 10). NTH_AUTH
+        pools are preferred at those milestones; if none exist, gifts are drawn from other active pools.
       </div>
     </div>
   );
