@@ -12,8 +12,10 @@ export const usersApi = {
     fullName: string;
     email: string;
     phone: string;
-    role: string;
+    /** Optional CRM role enum for storage; Dora invites omit this */
+    role?: string;
     consoleRole?: 'batch' | 'brand' | 'inv';
+    invitePlatform?: 'dora' | 'crm' | 'platform';
   }) => {
     const res = await apiClient.post('/user/create', body);
     return unwrap<ApiTeamMember>(res);

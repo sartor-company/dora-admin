@@ -527,13 +527,18 @@ export function BrandConsumersPage() {
             </TableWrap>
 
             <div className="consumers-detail__section-title">Gifts won & redeemed</div>
-            <TableWrap minWidth={640}>
+            <div className="consumers-detail__hint">
+              Result and points come from the <strong>first</strong> successful authentication of
+              that PIN (10 pts). Duplicate awards for the same PIN are merged into one row.
+            </div>
+            <TableWrap minWidth={720}>
               <table>
                 <thead>
                   <tr>
                     <th>Gift</th>
                     <th>PIN Used</th>
                     <th>Result</th>
+                    <th>Points</th>
                     <th>Pool</th>
                     <th>Won</th>
                     <th>Status</th>
@@ -549,6 +554,7 @@ export function BrandConsumersPage() {
                       <td>
                         <Badge variant={g.result === 'Genuine' ? 'bg' : 'ba'}>{g.result || '—'}</Badge>
                       </td>
+                      <td>{g.pointsEarned != null && g.pointsEarned > 0 ? `+${g.pointsEarned}` : '—'}</td>
                       <td>{g.pool}</td>
                       <td>{g.won}</td>
                       <td>
@@ -567,7 +573,7 @@ export function BrandConsumersPage() {
                   ))}
                   {detail.gifts.length === 0 && (
                     <tr>
-                      <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text3)', padding: 12 }}>
+                      <td colSpan={9} style={{ textAlign: 'center', color: 'var(--text3)', padding: 12 }}>
                         No gifts won.
                       </td>
                     </tr>

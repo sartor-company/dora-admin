@@ -45,8 +45,8 @@ export function InviteMemberModal({ open, onClose, onSuccess }: InviteMemberModa
         fullName: fullName.trim(),
         email: email.trim(),
         phone: phone.trim(),
-        role: 'Manager',
         consoleRole,
+        invitePlatform: 'dora',
       });
       await refreshTeam();
       reset();
@@ -81,13 +81,8 @@ export function InviteMemberModal({ open, onClose, onSuccess }: InviteMemberModa
           <option value="inv">Investigation Officer</option>
         </select>
       </FormGroup>
-      <FormGroup label="CRM role">
-        <select className="inp" value="Manager" disabled>
-          <option>Manager</option>
-        </select>
-      </FormGroup>
       <div style={{ padding: 9, background: 'var(--bb)', borderRadius: 7, fontSize: 12, color: 'var(--bt)', marginBottom: 14 }}>
-        ℹ An invitation email with login credentials will be sent automatically.
+        An invitation email for <strong>Dora Client Admin</strong> will be sent with login credentials for <strong>admin.dorascan.ai</strong>. This does not create a CRM Client Admin account.
       </div>
       <ModalFooter>
         <Button variant="secondary" onClick={handleClose} disabled={saving}>

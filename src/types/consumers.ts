@@ -56,6 +56,7 @@ export type ConsumerGiftRow = {
   pool: string;
   pin: string;
   result: string;
+  pointsEarned?: number;
   won: string;
   status: string;
   statusRaw?: string;
