@@ -6,7 +6,7 @@ import { RestrictBanner } from '../../components/ui/RestrictBanner';
 import { useApp } from '../../context/AppContext';
 import { useContinuousQrScan } from '../../hooks/useContinuousQrScan';
 import { useAuthStore } from '../../store/authStore';
-import type { RedeemGiftResult, RedeemPoolStock, RedeemTodayItem } from '../../types/gifts';
+import type { RedeemPoolStock, RedeemTodayItem } from '../../types/gifts';
 import './RedeemGiftPage.css';
 
 type Mode = 'qr' | 'pin';
