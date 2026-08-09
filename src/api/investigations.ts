@@ -10,7 +10,7 @@ export interface InvestigationRow {
   flagVariant: string;
   batch: string;
   product: string;
-  dora: number;
+  dora: number | null;
   status: string;
   statusVariant: string;
   location: string;
@@ -21,7 +21,7 @@ export interface InvestigationRow {
   officer?: string;
   outcome?: string;
   outcomeVariant?: string;
-  [key: string]: string | number | undefined;
+  [key: string]: string | number | null | undefined;
 }
 
 export interface InvestigationStats {
@@ -56,7 +56,8 @@ export const investigationsApi = {
     description: string;
     severity?: 'P1' | 'P2' | 'P3';
     location?: string;
-    doraScore?: number;
+    doraScore?: number | null;
+    patternType?: string;
   }) => {
     const res = await apiClient.post('/investigations', body);
     return unwrap<InvestigationRow>(res);

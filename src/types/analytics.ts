@@ -41,9 +41,13 @@ export interface FraudAnalytics {
   alerts: {
     date: string;
     patternType: string;
+    patternLabel?: string;
     batchNumber: string;
+    productName?: string | null;
     severity: string;
     pin: string;
+    doraScore?: number | null;
+    eventCount?: number;
   }[];
 }
 

@@ -24,13 +24,24 @@ export function BrandFraudPage() {
     analyticsApi.fraud(30).then(setFraud).catch(() => setFraud(null));
   }, []);
 
-  const escalate = async (batchNumber: string, patternType: string) => {
+  const escalate = async (row: {
+    batchNumber: string;
+    patternType: string;
+    patternLabel?: string;
+    productName?: string | null;
+    doraScore?: number | null;
+    severity: string;
+  }) => {
     if (isReadOnly) return;
     try {
+      const label = row.patternLabel || row.patternType;
       await investigationsApi.create({
-        batch: batchNumber,
-        severity: patternType.includes('HIGH_RISK') || patternType.includes('BATCH_MISMATCH') ? 'P1' : 'P2',
-        description: `Escalated from fraud alerts: ${patternType} on batch ${batchNumber}`,
+        batch: row.batchNumber,
+        product: row.productName || undefined,
+        severity: row.severity === 'Critical' || row.patternType.includes('HIGH_RISK') || row.patternType.includes('BATCH_MISMATCH') ? 'P1' : 'P2',
+        patternType: row.patternType,
+        doraScore: row.doraScore ?? undefined,
+        description: `Escalated from fraud alerts: ${row.patternType} (${label}) on batch ${row.batchNumber}`,
       });
       await refreshInvestigations();
       showToast('Investigation opened from fraud alert.', 'success');
@@ -63,22 +74,24 @@ export function BrandFraudPage() {
                 <th>Date</th>
                 <th>Pattern Type</th>
                 <th>Affected Batch</th>
+                <th>Events</th>
                 <th>Severity</th>
                 {!isReadOnly && <th></th>}
               </tr>
             </thead>
             <tbody>
               {(fraud?.alerts ?? []).map((row, i) => (
-                <tr key={`${row.pin}-${i}`}>
+                <tr key={`${row.patternType}-${row.batchNumber}-${i}`}>
                   <td>{formatApiDate(row.date ? new Date(row.date).getTime() : undefined)}</td>
-                  <td>{row.patternType}</td>
+                  <td>{row.patternLabel || row.patternType}</td>
                   <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{row.batchNumber}</td>
+                  <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{row.eventCount ?? 1}</td>
                   <td>
                     <Badge variant={row.severity === 'Critical' ? 'br' : 'ba'}>{row.severity}</Badge>
                   </td>
                   {!isReadOnly && (
                     <td>
-                      <Button size="sm" variant="secondary" onClick={() => escalate(row.batchNumber, row.patternType)}>
+                      <Button size="sm" variant="secondary" onClick={() => escalate(row)}>
                         Investigate
                       </Button>
                     </td>
@@ -87,7 +100,7 @@ export function BrandFraudPage() {
               ))}
               {(fraud?.alerts ?? []).length === 0 && (
                 <tr>
-                  <td colSpan={isReadOnly ? 4 : 5} style={{ textAlign: 'center', color: 'var(--text3)', padding: 20 }}>
+                  <td colSpan={isReadOnly ? 5 : 6} style={{ textAlign: 'center', color: 'var(--text3)', padding: 20 }}>
                     No fraud alerts in the last 30 days.
                   </td>
                 </tr>

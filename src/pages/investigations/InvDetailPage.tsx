@@ -75,7 +75,7 @@ export function InvDetailPage() {
         <div className="hero-stats">
           <div>
             <div className="stat-banner__label">DORA Score</div>
-            <div className="stat-banner__value">{inv.dora}</div>
+            <div className="stat-banner__value">{inv.dora == null ? '—' : inv.dora}</div>
           </div>
           <div>
             <div className="stat-banner__label">Opened</div>
@@ -95,7 +95,8 @@ export function InvDetailPage() {
       <Card style={{ marginBottom: 14 }}>
         <InfoGrid>
           <InfoCell label="Batch" value={inv.batch} />
-          <InfoCell label="Severity" value={inv.flag} />
+          <InfoCell label="Severity" value={inv.priority} />
+          <InfoCell label="Flag" value={inv.flag} />
           <InfoCell label="Assigned" value={inv.officer || 'Unassigned'} />
           <InfoCell label="Status" value={inv.status} />
         </InfoGrid>

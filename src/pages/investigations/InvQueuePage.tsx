@@ -113,8 +113,14 @@ export function InvQueuePage() {
                     </td>
                     <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{inv.batch}</td>
                     <td>{inv.product}</td>
-                    <td style={{ fontFamily: "'DM Mono', monospace", fontWeight: 700, color: 'var(--rt)' }}>
-                      {inv.dora}
+                    <td
+                      style={{
+                        fontFamily: "'DM Mono', monospace",
+                        fontWeight: 700,
+                        color: inv.dora == null ? 'var(--text3)' : 'var(--rt)',
+                      }}
+                    >
+                      {inv.dora == null ? '—' : inv.dora}
                     </td>
                     <td>
                       <Badge variant={inv.statusVariant as BadgeVariant}>{inv.status}</Badge>
