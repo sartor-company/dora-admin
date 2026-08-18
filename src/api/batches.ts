@@ -20,7 +20,7 @@ export const batchesApi = {
     manufacturer: string;
     product: string;
     invoiceNumber: string;
-    supplier: string;
+    supplier?: string;
     batch: Array<{
       quantity: number;
       batchNumber: string;

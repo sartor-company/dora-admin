@@ -12,13 +12,4 @@ export const suppliersApi = {
     const res = await apiClient.post('/supplier', body);
     return unwrap<ApiSupplier>(res);
   },
-
-  ensureDefault: async (adminEmail: string, adminName: string) => {
-    const existing = await suppliersApi.list();
-    if (existing.length > 0) return existing[0];
-    return suppliersApi.create({
-      name: adminName || 'Default Supplier',
-      email: adminEmail,
-    });
-  },
 };

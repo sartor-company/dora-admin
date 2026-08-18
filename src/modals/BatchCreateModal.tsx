@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { batchesApi } from '../api/batches';
 import { labelsApi } from '../api/labels';
-import { suppliersApi } from '../api/suppliers';
 import { StepWizardModal, type StepDef } from '../components/wizards/StepWizardModal';
 import { ChoiceCard } from '../components/wizards/ChoiceCard';
 import { ImageUploadZone } from '../components/wizards/ImageUploadZone';
@@ -232,7 +231,6 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
         }
       }
 
-      const supplierRec = await suppliersApi.ensureDefault(user.email, user.fullName);
       const selected = products.find((p) => p._id === productId);
       const mfr = supplier.trim() || selected?.manufacturer || user.fullName || 'Manufacturer';
       const expiryTs = new Date(expiryDate).getTime();
@@ -242,7 +240,6 @@ export function BatchCreateModal({ open, onClose, onSuccess }: BatchCreateModalP
         manufacturer: mfr,
         product: productId,
         invoiceNumber: `INV-${Date.now()}`,
-        supplier: supplierRec._id,
         batch: [
           {
             quantity: qty,
