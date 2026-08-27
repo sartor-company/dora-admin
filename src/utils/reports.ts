@@ -82,7 +82,7 @@ export function generateReport(
       ['Fraud alerts', analytics.kpis.fraudAlerts],
       ['Active consumers', analytics.kpis.activeConsumers],
       ['PIN credits', analytics.kpis.pinCredits],
-      ['SMS credits', analytics.kpis.smsCredits],
+      ['Communication credits', analytics.kpis.smsCredits],
     ];
     if (format === 'csv') downloadCsv(`auth-summary-${stamp}.csv`, headers, rows);
     else

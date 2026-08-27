@@ -122,7 +122,7 @@ export function BatchDashboardPage() {
             ))}
             {smsCredits < 1000 && (
               <div style={{ padding: 9, background: 'var(--bb)', borderRadius: 6, fontSize: 12, color: 'var(--bt)' }}>
-                SMS credits at {smsCredits.toLocaleString()}. Consider purchasing more in Settings → Billing.
+                Communication credits at {smsCredits.toLocaleString()}. Consider purchasing more in Settings → Billing.
               </div>
             )}
             {pendingBatches.length === 0 && smsCredits >= 1000 && (

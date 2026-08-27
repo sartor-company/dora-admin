@@ -36,7 +36,7 @@ const TABS = [
 const NOTIFICATION_ITEMS: { key: keyof NotificationPrefs; label: string; desc: string }[] = [
   { key: 'investigationAlerts', label: 'P1/P2 investigation alerts', desc: 'Immediate email on critical fraud flags' },
   { key: 'doraTrainingComplete', label: 'DORA training completion', desc: 'Email when a model is ready to deploy' },
-  { key: 'smsCreditThreshold', label: 'SMS credit threshold alert (20%)', desc: 'Alert before SMS credits run low' },
+  { key: 'smsCreditThreshold', label: 'Communication credit threshold alert (20%)', desc: 'Alert before communication credits (SMS + email) run low' },
   { key: 'pinCreditThreshold', label: 'PIN credit threshold alert (20%)', desc: 'Alert before PIN credits run low' },
   { key: 'skuRenewalReminders', label: 'SKU licence renewal reminders', desc: '30 and 7 days before each annual renewal' },
   { key: 'weeklySummary', label: 'Weekly platform summary', desc: 'Every Monday 9am WAT' },
@@ -534,14 +534,14 @@ export function OwnerSettingsPage() {
                   tab: 'pin' as const,
                 },
                 {
-                  title: 'SMS Notification Credits',
+                  title: 'Communication Credits',
                   purchased: smsTotal,
                   used: smsUsed,
                   remaining: smsCredits,
                   pct: smsTotal > 0 ? Math.round((smsCredits / smsTotal) * 100) : 0,
                   color: 'var(--amber)',
                   remainingColor: smsCredits < 1000 ? 'var(--at)' : 'var(--gt)',
-                  note: 'Used is inferred from paid invoices vs current balance (pilot grants may not appear as invoices).',
+                  note: 'Shared pool for commercial SMS + email to customers. OTP/auth messages do not consume credits.',
                   tab: 'sms' as const,
                 },
                 {

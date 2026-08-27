@@ -147,7 +147,7 @@ export function OwnerDashboardPage() {
             />
             <HealthRow
               dotColor={smsCredits < 1000 ? 'var(--amber)' : 'var(--green)'}
-              label="SMS Credits"
+              label="Communication Credits"
               value={`${smsCredits.toLocaleString()} left`}
               badge={smsCredits < 1000 ? 'Low' : 'OK'}
               badgeVariant={smsCredits < 1000 ? 'ba' : 'bg'}

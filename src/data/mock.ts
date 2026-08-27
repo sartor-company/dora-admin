@@ -489,8 +489,8 @@ export const notifications: Notification[] = [
     id: '3',
     type: 'billing',
     icon: '💰',
-    title: 'SMS credit balance at 41% — consider topping up',
-    body: '5,876 SMS credits remaining of 10,000 purchased. You will receive an alert again at 20%.',
+    title: 'Communication credit balance at 41% — consider topping up',
+    body: '5,876 communication credits remaining of 10,000 purchased. You will receive an alert again at 20%.',
     time: 'Yesterday, 16:30',
     action: { label: 'Buy More', pageId: 'pg-owner-settings' },
     bg: 'var(--ab)',
@@ -558,7 +558,7 @@ export const teamActivity: TeamActivity[] = [
 export const actionsRequired: ActionRequired[] = [
   { module: 'Investigations', issue: 'INV-087 P1 open — batch mismatch', urgency: 'Critical', urgencyVariant: 'br', actionLabel: 'Review', pageId: 'pg-inv-queue', variant: 'danger' },
   { module: 'DORA Training', issue: 'BATCH-041 awaiting reference image', urgency: 'Attention', urgencyVariant: 'ba', actionLabel: 'Upload', pageId: 'pg-batch-list', variant: 'secondary' },
-  { module: 'SMS Credits', issue: '41% of bundle used — top up soon', urgency: 'Monitor', urgencyVariant: 'ba', actionLabel: 'Billing', pageId: 'pg-owner-settings', role: 'owner', variant: 'secondary' },
+  { module: 'Communication Credits', issue: '41% of bundle used — top up soon', urgency: 'Monitor', urgencyVariant: 'ba', actionLabel: 'Billing', pageId: 'pg-owner-settings', role: 'owner', variant: 'secondary' },
   { module: 'PIN Credits', issue: '8,200 remaining of 10,000', urgency: 'Monitor', urgencyVariant: 'bx', actionLabel: 'Billing', pageId: 'pg-owner-settings', role: 'owner', variant: 'secondary' },
 ];
 

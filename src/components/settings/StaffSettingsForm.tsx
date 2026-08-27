@@ -246,7 +246,7 @@ export function StaffSettingsForm({ roleSubtitle, notificationItems, showCredits
             {[
               { label: 'Batch Calibration', value: String(user?.batchCalCredits ?? '—'), sub: 'credits remaining' },
               { label: 'PIN Authentication', value: (user?.pinCredits ?? 0).toLocaleString(), sub: 'credits remaining' },
-              { label: 'SMS Notifications', value: (user?.smsCredits ?? 0).toLocaleString(), sub: 'credits remaining', accent: true },
+              { label: 'Communication Credits', value: (user?.smsCredits ?? 0).toLocaleString(), sub: 'SMS + email remaining', accent: true },
             ].map((c) => (
               <div
                 key={c.label}

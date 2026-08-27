@@ -25,13 +25,13 @@ type CreditTab = 'pin' | 'sms' | 'batch';
 
 const TABS = [
   { id: 'pin' as const, label: 'PIN Auth' },
-  { id: 'sms' as const, label: 'SMS' },
+  { id: 'sms' as const, label: 'Communication' },
   { id: 'batch' as const, label: 'Batch Calibration' },
 ];
 
 const TYPE_LABEL: Record<CreditTab, string> = {
   pin: 'PIN Auth Credits',
-  sms: 'SMS Credits',
+  sms: 'Communication Credits',
   batch: 'Batch Calibration Credits',
 };
 
@@ -65,24 +65,24 @@ const FALLBACK_BUNDLES: Record<
   sms: [
     {
       id: 'sms-starter',
-      title: 'Starter — 10,000 SMS',
+      title: 'Starter — 10,000 communication credits',
       quantity: 10000,
       amount: 45000,
-      blurb: '₦4.50/SMS · Best for pilots',
+      blurb: '₦4.50/msg · SMS + email · Best for pilots',
     },
     {
       id: 'sms-growth',
-      title: 'Growth — 50,000 SMS',
+      title: 'Growth — 50,000 communication credits',
       quantity: 50000,
       amount: 200000,
-      blurb: '₦4.00/SMS · 11% saving',
+      blurb: '₦4.00/msg · SMS + email · 11% saving',
     },
     {
       id: 'sms-scale',
-      title: 'Scale — 200,000 SMS',
+      title: 'Scale — 200,000 communication credits',
       quantity: 200000,
       amount: 700000,
-      blurb: '₦3.50/SMS · 22% saving · high volume',
+      blurb: '₦3.50/msg · SMS + email · 22% saving · high volume',
     },
   ],
   batch: [
