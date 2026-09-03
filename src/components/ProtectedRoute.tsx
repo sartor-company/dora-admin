@@ -31,7 +31,10 @@ export function ProtectedRoute() {
           token: token!,
           tenantName: existing?.fullName,
         } as Record<string, unknown>);
-        if (!cancelled) setAuth({ ...merged, token: token! });
+        if (!cancelled) {
+          const rememberMe = useAuthStore.getState().rememberMe;
+          setAuth({ ...merged, token: token! }, rememberMe);
+        }
       } catch {
         if (!cancelled) logout();
       } finally {
