@@ -17,7 +17,8 @@ export type NavIconKey =
   | 'gift'
   | 'map'
   | 'check'
-  | 'chart2';
+  | 'chart2'
+  | 'scan';
 
 export type NavItem = {
   label: string;

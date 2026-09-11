@@ -94,6 +94,23 @@ export function NavIcon({ name }: { name: NavIconKey }) {
           <path d="M8 8L8 3M8 8L12 10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
         </svg>
       );
+    case 'scan':
+      return (
+        <svg
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M2 5V3a1 1 0 0 1 1-1h2" />
+          <path d="M11 2h2a1 1 0 0 1 1 1v2" />
+          <path d="M14 11v2a1 1 0 0 1-1 1h-2" />
+          <path d="M5 14H3a1 1 0 0 1-1-1v-2" />
+          <line x1="2" y1="8" x2="14" y2="8" strokeDasharray="2 1.5" />
+        </svg>
+      );
     default:
       return null;
   }

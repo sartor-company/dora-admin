@@ -5,6 +5,7 @@ import type {
   FraudAnalytics,
   GeoAnalytics,
   LoyaltyAnalytics,
+  ScanSessionsResponse,
 } from '../types/analytics';
 
 export const analyticsApi = {
@@ -32,4 +33,16 @@ export const analyticsApi = {
     const res = await apiClient.get('/analytics/geo', { params: { days } });
     return unwrap<GeoAnalytics>(res);
   },
+
+  scanSessions: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    stage?: number | string;
+    search?: string;
+  }) => {
+    const res = await apiClient.get('/analytics/scan-sessions', { params });
+    return unwrap<ScanSessionsResponse>(res);
+  },
 };
+

@@ -14,6 +14,7 @@ import { BrandDashboardPage } from '../pages/brand/BrandDashboardPage';
 import { BrandFraudPage } from '../pages/brand/BrandFraudPage';
 import { BrandGeoPage } from '../pages/brand/BrandGeoPage';
 import { BrandLoyaltyPage } from '../pages/brand/BrandLoyaltyPage';
+import { BrandScansPage } from '../pages/brand/BrandScansPage';
 import { BrandSettingsPage } from '../pages/brand/BrandSettingsPage';
 import { GiftsAnalyticsPage } from '../pages/gifts/GiftsAnalyticsPage';
 import { GiftsDetailPage } from '../pages/gifts/GiftsDetailPage';
@@ -58,6 +59,8 @@ export function AppRoutes() {
           <Route path="batch/dashboard" element={<BatchDashboardPage />} />
           <Route path="batch/settings" element={<BatchSettingsPage />} />
           <Route path="brand/dashboard" element={<BrandDashboardPage />} />
+          <Route path="brand/scans" element={<BrandScansPage />} />
+          <Route path="analytics/scans" element={<BrandScansPage />} />
           <Route path="brand/geo" element={<BrandGeoPage />} />
           <Route path="brand/loyalty" element={<BrandLoyaltyPage />} />
           <Route path="brand/consumers" element={<BrandConsumersPage />} />

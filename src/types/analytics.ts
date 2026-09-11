@@ -131,3 +131,54 @@ export interface BatchAnalytics {
   hasDoraImages: boolean;
   scanTrend: { date: string; count: number }[];
 }
+
+export interface ScanSessionConsumer {
+  _id: string;
+  firstName?: string;
+  lastName?: string;
+  phone_masked?: string;
+  email?: string;
+}
+
+export interface ScanSession {
+  _id: string;
+  sessionId: string;
+  stage: number;
+  batchNumber?: string;
+  productName?: string;
+  isAuthentic?: boolean;
+  scanDoraScore?: number;
+  status: 'PENDING' | 'COMPLETED' | 'TIMEOUT';
+  latitude?: number;
+  longitude?: number;
+  consumerId?: ScanSessionConsumer | string | null;
+  pin?: string;
+  authResult?: string;
+  admin?: string | null;
+  invalidPinAttempts?: {
+    pin: string;
+    attemptedAt: string;
+    resultCode: string;
+    ip?: string;
+  }[];
+  failedPinCount?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ScanSessionsResponse {
+  sessions: ScanSession[];
+  kpis: {
+    total: number;
+    stage1Count: number;
+    stage2Count: number;
+    completedCount: number;
+    timeoutCount: number;
+  };
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    pages: number;
+  };
+}

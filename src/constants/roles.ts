@@ -39,6 +39,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         title: 'Analytics',
         items: [
           { label: 'Brand Dashboard', icon: 'chart', path: '/brand/dashboard' },
+          { label: 'Scans', icon: 'scan', path: '/brand/scans' },
           { label: 'Consumer Loyalty', icon: 'gift', path: '/brand/loyalty' },
           { label: 'Consumer Directory', icon: 'search', path: '/brand/consumers' },
           { label: 'Fraud Alerts', icon: 'alert', path: '/brand/fraud', badgeKey: 'fraud' },
@@ -127,6 +128,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
       {
         title: 'Analytics',
         items: [
+          { label: 'Scans', icon: 'scan', path: '/brand/scans' },
           { label: 'Products', icon: 'box', path: '/products' },
           { label: 'Geographic Heat Map', icon: 'map', path: '/brand/geo' },
           { label: 'Consumer Loyalty', icon: 'gift', path: '/brand/loyalty' },
