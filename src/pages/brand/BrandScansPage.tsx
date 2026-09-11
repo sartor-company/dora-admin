@@ -35,10 +35,11 @@ function formatTimeOnly(dateStr?: string) {
 
 const geocodeCache = new Map<string, string>();
 
-function GeoName({ lat, lng }: { lat: number; lng: number }) {
+function GeoName({ lat, lng }: { lat?: number | null; lng?: number | null }) {
   const [name, setName] = useState<string | null>(null);
 
   useEffect(() => {
+    if (lat == null || lng == null) return;
     const key = `${lat.toFixed(4)},${lng.toFixed(4)}`;
     if (geocodeCache.has(key)) {
       setName(geocodeCache.get(key)!);
@@ -75,6 +76,7 @@ function GeoName({ lat, lng }: { lat: number; lng: number }) {
     fetchName();
   }, [lat, lng]);
 
+  if (lat == null || lng == null) return <span>—</span>;
   return name ? <span>{name}</span> : <span>{lat.toFixed(4)}, {lng.toFixed(4)}</span>;
 }
 
@@ -118,7 +120,7 @@ export function BrandScansPage() {
   const [status, setStatus] = useState('All Statuses');
   const [stage, setStage] = useState('All Stages');
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit] = useState(20);
 
   // Modal inspection
   const [inspectingSession, setInspectingSession] = useState<ScanSession | null>(null);
@@ -271,25 +273,28 @@ export function BrandScansPage() {
         <KCard
           label="Total Scan Sessions"
           value={String(data?.kpis?.total ?? 0)}
-          sub="Recorded across all batches"
+          trend="Recorded across all batches"
           style={{ borderLeft: '3px solid var(--navy)' }}
         />
         <KCard
           label="Stage 2 Completed"
           value={String(data?.kpis?.completedCount ?? 0)}
-          sub={`${completionRate}% consumer conversion rate`}
+          trend={`${completionRate}% consumer conversion rate`}
+          trendType="up"
           style={{ borderLeft: '3px solid var(--green)' }}
         />
         <KCard
           label="Stage 1 Drop-offs"
           value={String(data?.kpis?.stage1Count ?? 0)}
-          sub={`${stage1DropRate}% scanned packaging only`}
+          trend={`${stage1DropRate}% scanned packaging only`}
+          trendType="neu"
           style={{ borderLeft: '3px solid var(--amber)' }}
         />
         <KCard
           label="Timed Out / Abandoned"
           value={String(data?.kpis?.timeoutCount ?? 0)}
-          sub="Expired before completion"
+          trend="Expired before completion"
+          trendType="dn"
           style={{ borderLeft: '3px solid var(--red)' }}
         />
       </KCardGrid>
