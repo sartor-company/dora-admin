@@ -123,7 +123,7 @@ export function InvQueuePage() {
                       {inv.dora == null ? '—' : inv.dora}
                     </td>
                     <td>
-                      <Badge variant={inv.statusVariant as BadgeVariant}>{inv.status}</Badge>
+                      <Badge variant={(inv.lifecycleVariant || inv.statusVariant) as BadgeVariant}>{inv.lifecycle || inv.status}</Badge>
                     </td>
                     <td>{inv.location}</td>
                     <td>

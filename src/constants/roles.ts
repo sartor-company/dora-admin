@@ -165,6 +165,7 @@ export const ROLES: Record<RoleId, RoleConfig> = {
         title: 'Investigations',
         items: [
           { label: 'Investigation Queue', icon: 'search', path: '/investigations/queue', badgeKey: 'investigations' },
+          { label: 'Scans', icon: 'scan', path: '/brand/scans' },
           { label: 'Fraud Patterns', icon: 'alert', path: '/investigations/dashboard' },
         ],
       },

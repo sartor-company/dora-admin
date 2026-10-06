@@ -42,7 +42,7 @@ export function InvClosedPage() {
     downloadCsv(
       'closed-investigations.csv',
       ['ID', 'Severity', 'Batch', 'Product', 'Outcome', 'Closed', 'Officer'],
-      filtered.map((i) => [i.id, i.flag, i.batch, i.product, i.outcome || '—', i.closed || '—', i.officer || '—']),
+      filtered.map((i) => [i.id, i.flag, i.batch, i.product, i.lifecycle || i.outcome || '—', i.closed || '—', i.officer || '—']),
     );
   };
 
@@ -51,7 +51,7 @@ export function InvClosedPage() {
       title: 'Closed Investigations',
       company: companyName,
       headers: ['ID', 'Severity', 'Batch', 'Product', 'Outcome', 'Closed'],
-      rows: filtered.map((i) => [i.id, i.flag, i.batch, i.product, i.outcome || '—', i.closed || '—']),
+      rows: filtered.map((i) => [i.id, i.flag, i.batch, i.product, i.lifecycle || i.outcome || '—', i.closed || '—']),
       summary: [{ label: 'Closed cases', value: String(filtered.length) }],
     });
   };
@@ -106,7 +106,7 @@ export function InvClosedPage() {
                   <td>{inv.batch}</td>
                   <td>{inv.product}</td>
                   <td>
-                    <Badge variant={(inv.outcomeVariant as BadgeVariant) || 'bg'}>{inv.outcome || '—'}</Badge>
+                    <Badge variant={((inv.lifecycleVariant || inv.outcomeVariant) as BadgeVariant) || 'bg'}>{inv.lifecycle || inv.outcome || '—'}</Badge>
                   </td>
                   <td>{inv.closed || '—'}</td>
                   <td>{inv.officer || '—'}</td>

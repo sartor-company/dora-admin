@@ -96,7 +96,7 @@ export function InvDashboardPage() {
                     </td>
                     <td style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{inv.batch}</td>
                     <td>
-                      <Badge variant={inv.statusVariant as BadgeVariant}>{inv.status}</Badge>
+                      <Badge variant={(inv.lifecycleVariant || inv.statusVariant) as BadgeVariant}>{inv.lifecycle || inv.status}</Badge>
                     </td>
                   </tr>
                 ))}

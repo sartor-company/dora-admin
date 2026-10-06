@@ -148,7 +148,7 @@ export interface ScanSession {
   productName?: string;
   isAuthentic?: boolean;
   scanDoraScore?: number;
-  status: 'PENDING' | 'COMPLETED' | 'TIMEOUT';
+  status: 'PENDING' | 'COMPLETED' | 'TIMEOUT' | 'LOCKED';
   latitude?: number;
   longitude?: number;
   consumerId?: ScanSessionConsumer | string | null;
@@ -162,6 +162,11 @@ export interface ScanSession {
     ip?: string;
   }[];
   failedPinCount?: number;
+  /** PIN lockout (3 failed attempts in the session, or from one phone within 24h) */
+  lockedAt?: string | null;
+  lockReason?: 'SESSION_ATTEMPTS' | 'PHONE_ATTEMPTS' | 'PHONE_LOCKED' | null;
+  /** INV-YYYY-NNN opened or joined by lockout, manual escalation or consumer report */
+  investigationId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -174,6 +179,7 @@ export interface ScanSessionsResponse {
     stage2Count: number;
     completedCount: number;
     timeoutCount: number;
+    lockedCount?: number;
   };
   pagination: {
     total: number;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { analyticsApi } from '../../api/analytics';
+import { investigationsApi } from '../../api/investigations';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -8,6 +9,8 @@ import { KCard, KCardGrid } from '../../components/ui/KCard';
 import { Modal, ModalFooter } from '../../components/ui/Modal';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { TableWrap } from '../../components/ui/TableWrap';
+import { useApp } from '../../context/AppContext';
+import { useTenantData } from '../../context/TenantDataContext';
 import { useToast } from '../../context/ToastContext';
 import type { BadgeVariant } from '../../types';
 import type { ScanSession, ScanSessionsResponse } from '../../types/analytics';
@@ -88,9 +91,27 @@ function statusBadgeVariant(status: string): BadgeVariant {
       return 'ba';
     case 'TIMEOUT':
       return 'bx';
+    case 'LOCKED':
+      return 'br';
     default:
       return 'bb';
   }
+}
+
+const LOCK_REASON_LABEL: Record<string, string> = {
+  SESSION_ATTEMPTS: '3 failed PINs in session',
+  PHONE_ATTEMPTS: '3 failed PINs from one phone (24h)',
+  PHONE_LOCKED: 'Phone paused after earlier lockout',
+};
+
+/** Failed Stage 2 PIN — the sessions staff may promote to an investigation. */
+function isFailedStage2(s: ScanSession) {
+  return s.stage === 2 && ((s.failedPinCount || 0) > 0 || ['FAILED', 'HIGH_RISK_REJECTED'].includes(s.authResult || ''));
+}
+
+function defaultEscalationSeverity(s: ScanSession): 'P1' | 'P2' {
+  const highRisk = s.authResult === 'HIGH_RISK_REJECTED' || (s.invalidPinAttempts || []).some((a) => a.resultCode === 'HIGH_RISK_REJECTED');
+  return highRisk ? 'P1' : 'P2';
 }
 
 function doraScoreVariant(score?: number): BadgeVariant {
@@ -109,6 +130,10 @@ function verdictVariant(verdict?: string): BadgeVariant {
 
 export function BrandScansPage() {
   const { showToast } = useToast();
+  const { role, navigateTo } = useApp();
+  const { refreshInvestigations } = useTenantData();
+  // Server enforces the same rule (owner / Investigation Officer)
+  const canEscalate = role === 'owner' || role === 'inv';
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -124,6 +149,8 @@ export function BrandScansPage() {
 
   // Modal inspection
   const [inspectingSession, setInspectingSession] = useState<ScanSession | null>(null);
+  const [escalateForm, setEscalateForm] = useState<{ severity: 'P1' | 'P2' | 'P3'; note: string } | null>(null);
+  const [escalating, setEscalating] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const fetchScans = useCallback(
@@ -156,6 +183,37 @@ export function BrandScansPage() {
     }, 250);
     return () => clearTimeout(timer);
   }, [fetchScans]);
+
+  const closeInspector = () => {
+    setInspectingSession(null);
+    setEscalateForm(null);
+  };
+
+  const escalateSession = async () => {
+    if (!inspectingSession || !escalateForm) return;
+    setEscalating(true);
+    try {
+      const res = await investigationsApi.escalateSession(inspectingSession.sessionId, {
+        severity: escalateForm.severity,
+        note: escalateForm.note.trim() || undefined,
+      });
+      setInspectingSession({ ...inspectingSession, investigationId: res.investigationId });
+      setEscalateForm(null);
+      showToast(
+        res.alreadyEscalated
+          ? `Already under investigation ${res.investigationId}.`
+          : res.joined
+            ? `Added to open investigation ${res.investigationId}.`
+            : `Investigation ${res.investigationId} opened.`,
+        'success',
+      );
+      await Promise.all([fetchScans(true), refreshInvestigations()]);
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : 'Could not escalate this session.');
+    } finally {
+      setEscalating(false);
+    }
+  };
 
   const handleCopyId = (id: string, e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -299,6 +357,27 @@ export function BrandScansPage() {
         />
       </KCardGrid>
 
+      {(data?.kpis?.lockedCount ?? 0) > 0 && status !== 'LOCKED' && (
+        <Card style={{ marginBottom: 16, borderLeft: '3px solid var(--red)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13 }}>
+              🔒 <strong>{data?.kpis?.lockedCount}</strong> session{data?.kpis?.lockedCount === 1 ? '' : 's'} locked after
+              repeated failed PINs — each has an investigation opened automatically.
+            </span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setStatus('LOCKED');
+                setPage(1);
+              }}
+            >
+              Show locked
+            </Button>
+          </div>
+        </Card>
+      )}
+
       {/* Filter Toolbar */}
       <Card style={{ marginBottom: 16 }}>
         <FilterBar>
@@ -330,6 +409,7 @@ export function BrandScansPage() {
               <option value="COMPLETED">Completed</option>
               <option value="PENDING">Pending</option>
               <option value="TIMEOUT">Timed Out</option>
+              <option value="LOCKED">Locked (PIN)</option>
             </select>
 
             <select
@@ -563,6 +643,28 @@ export function BrandScansPage() {
                               ⚠️ {s.failedPinCount} failed attempt{(s.failedPinCount || 0) > 1 ? 's' : ''}
                             </div>
                           )}
+                          {s.investigationId && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigateTo(`/investigations/detail?id=${encodeURIComponent(s.investigationId || '')}`);
+                              }}
+                              style={{
+                                fontSize: 10,
+                                marginTop: 2,
+                                fontWeight: 600,
+                                color: 'var(--navy)',
+                                background: 'none',
+                                border: 'none',
+                                padding: 0,
+                                cursor: 'pointer',
+                                textDecoration: 'underline',
+                              }}
+                            >
+                              🔎 {s.investigationId}
+                            </button>
+                          )}
                         </div>
                       ) : s.isAuthentic != null ? (
                         <Badge variant={s.isAuthentic ? 'bg' : 'br'}>
@@ -705,13 +807,13 @@ export function BrandScansPage() {
       {/* Session Details Inspector Modal */}
       <Modal
         open={Boolean(inspectingSession)}
-        onClose={() => setInspectingSession(null)}
+        onClose={closeInspector}
         title="Scan Session Inspector"
         subtitle={`Session ID: ${inspectingSession?.sessionId || ''}`}
         width={620}
         footer={
           <ModalFooter>
-            <Button variant="secondary" onClick={() => setInspectingSession(null)}>
+            <Button variant="secondary" onClick={closeInspector}>
               Close
             </Button>
           </ModalFooter>
@@ -972,7 +1074,14 @@ export function BrandScansPage() {
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span>🛡️</span> PIN Audit Trail ({inspectingSession.failedPinCount || inspectingSession.invalidPinAttempts?.length} Failed Attempt{(inspectingSession.failedPinCount || 1) > 1 ? 's' : ''})
                   </span>
-                  <Badge variant="br">Security Flagged</Badge>
+                  <span style={{ display: 'flex', gap: 6 }}>
+                    {inspectingSession.status === 'LOCKED' && (
+                      <Badge variant="br">
+                        🔒 Locked{inspectingSession.lockReason ? ` · ${LOCK_REASON_LABEL[inspectingSession.lockReason] || inspectingSession.lockReason}` : ''}
+                      </Badge>
+                    )}
+                    <Badge variant="br">Security Flagged</Badge>
+                  </span>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 6 }}>
@@ -996,6 +1105,71 @@ export function BrandScansPage() {
                       <Badge variant="br">{att.resultCode}</Badge>
                     </div>
                   ))}
+                </div>
+
+                {/* Investigation link, or manual escalation for authorized staff */}
+                <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(220, 38, 38, 0.15)' }}>
+                  {inspectingSession.investigationId ? (
+                    <div style={{ fontSize: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <span>
+                        Under investigation: <strong style={{ fontFamily: "'DM Mono', monospace" }}>{inspectingSession.investigationId}</strong>
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => navigateTo(`/investigations/detail?id=${encodeURIComponent(inspectingSession.investigationId || '')}`)}
+                      >
+                        Open investigation
+                      </Button>
+                    </div>
+                  ) : !isFailedStage2(inspectingSession) ? null : !canEscalate ? (
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                      Your Investigation Officer or the account owner can escalate this session to an investigation.
+                    </div>
+                  ) : escalateForm ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <label style={{ fontSize: 12, fontWeight: 600 }} htmlFor="esc-severity">
+                          Severity
+                        </label>
+                        <select
+                          id="esc-severity"
+                          className="inp"
+                          value={escalateForm.severity}
+                          onChange={(e) => setEscalateForm({ ...escalateForm, severity: e.target.value as 'P1' | 'P2' | 'P3' })}
+                          style={{ width: 160 }}
+                        >
+                          <option value="P1">P1 — Critical</option>
+                          <option value="P2">P2 — High</option>
+                          <option value="P3">P3 — Normal</option>
+                        </select>
+                      </div>
+                      <textarea
+                        className="inp"
+                        rows={2}
+                        placeholder="Optional note for the investigation (e.g. store, context)…"
+                        value={escalateForm.note}
+                        onChange={(e) => setEscalateForm({ ...escalateForm, note: e.target.value })}
+                        style={{ width: '100%' }}
+                      />
+                      <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                        <Button size="sm" variant="secondary" onClick={() => setEscalateForm(null)} disabled={escalating}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" variant="danger" onClick={() => void escalateSession()} disabled={escalating}>
+                          {escalating ? 'Escalating…' : 'Open investigation'}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      onClick={() => setEscalateForm({ severity: defaultEscalationSeverity(inspectingSession), note: '' })}
+                    >
+                      Escalate to investigation
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
