@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
@@ -7,7 +8,37 @@ import { TableWrap } from '../../components/ui/TableWrap';
 import { useApp } from '../../context/AppContext';
 import { useTenantData } from '../../context/TenantDataContext';
 import { useTableFilter } from '../../hooks/useTableFilter';
+import type { InvestigationRow } from '../../api/investigations';
 import type { BadgeVariant } from '../../types';
+
+type QueueState = 'active' | 'open' | 'progress' | 'resolved' | 'confirmed';
+
+const QUEUE_STATES: { id: QueueState; label: string }[] = [
+  { id: 'active', label: 'Active queue' },
+  { id: 'open', label: 'Open' },
+  { id: 'progress', label: 'In progress' },
+  { id: 'resolved', label: 'Resolved' },
+  { id: 'confirmed', label: 'Confirmed counterfeit' },
+];
+
+function isConfirmed(inv: InvestigationRow) {
+  return /confirmed/i.test(String(inv.outcome || ''));
+}
+
+function queueState(inv: InvestigationRow): Exclude<QueueState, 'active'> {
+  const life = String(inv.lifecycle || '');
+  if (life === 'Counterfeit Confirmed' || isConfirmed(inv)) return 'confirmed';
+  if (life === 'False Positive' || life === 'Closed' || inv.status === 'Closed') return 'resolved';
+  if (inv.status === 'In Progress') return 'progress';
+  return 'open';
+}
+
+const PRIORITY_RANK: Record<string, number> = { P1: 0, P2: 1, P3: 2 };
+
+function matchesQueueState(inv: InvestigationRow, state: QueueState) {
+  if (state === 'active') return inv.status !== 'Closed';
+  return queueState(inv) === state;
+}
 
 const priorityLegend = [
   { label: 'P1', desc: 'Critical — immediate action' },
@@ -39,8 +70,35 @@ function PriorityBadge({ priority, color, size = 22 }: { priority: string; color
 export function InvQueuePage() {
   const { companyName, navigateWithQuery } = useApp();
   const { investigations, investigationStats, loading } = useTenantData();
-  const openCases = investigations.filter((i) => i.status !== 'Closed');
-  const { query, setQuery, filtered } = useTableFilter(openCases, ['id', 'flag', 'product', 'location', 'batch']);
+  const [queueStateFilter, setQueueStateFilter] = useState<QueueState>('active');
+  const stateRows = useMemo(
+    () =>
+      investigations
+        .filter((inv) => matchesQueueState(inv, queueStateFilter))
+        .sort((a, b) => (PRIORITY_RANK[a.priority] ?? 9) - (PRIORITY_RANK[b.priority] ?? 9)),
+    [investigations, queueStateFilter],
+  );
+  const { query, setQuery, filtered } = useTableFilter(stateRows, [
+    'id',
+    'flag',
+    'product',
+    'location',
+    'batch',
+    'sessionId',
+    'pin',
+    'outcome',
+  ]);
+  const counts = useMemo(
+    () => ({
+      active: investigations.filter((inv) => matchesQueueState(inv, 'active')).length,
+      open: investigations.filter((inv) => matchesQueueState(inv, 'open')).length,
+      progress: investigations.filter((inv) => matchesQueueState(inv, 'progress')).length,
+      resolved: investigations.filter((inv) => matchesQueueState(inv, 'resolved')).length,
+      confirmed: investigations.filter((inv) => matchesQueueState(inv, 'confirmed')).length,
+    }),
+    [investigations],
+  );
+  const showOutcome = queueStateFilter === 'resolved' || queueStateFilter === 'confirmed';
 
   return (
     <>
@@ -50,10 +108,13 @@ export function InvQueuePage() {
         actions={
           <div style={{ display: 'flex', gap: 6 }}>
             <Badge variant="br" style={{ fontSize: 12, padding: '5px 9px' }}>
-              {investigationStats?.queue ?? openCases.length} Open
+              {investigationStats?.queue ?? counts.active} Open
             </Badge>
             <Badge variant="bg" style={{ fontSize: 12, padding: '5px 9px' }}>
-              {investigationStats?.closed ?? 0} Closed
+              {counts.resolved} Resolved
+            </Badge>
+            <Badge variant="br" style={{ fontSize: 12, padding: '5px 9px' }}>
+              {counts.confirmed} Confirmed
             </Badge>
           </div>
         }
@@ -74,10 +135,23 @@ export function InvQueuePage() {
         <FilterBar>
           <input
             className="inp"
-            placeholder="Search investigations..."
+            placeholder="Search investigations, session, or PIN..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
+          <select
+            className="inp"
+            value={queueStateFilter}
+            onChange={(e) => setQueueStateFilter(e.target.value as QueueState)}
+            style={{ width: 220 }}
+            aria-label="Queue state"
+          >
+            {QUEUE_STATES.map((state) => (
+              <option key={state.id} value={state.id}>
+                {state.label} ({counts[state.id]})
+              </option>
+            ))}
+          </select>
         </FilterBar>
         {loading && !investigations.length ? (
           <div style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Loading…</div>
@@ -93,6 +167,7 @@ export function InvQueuePage() {
                   <th>Product</th>
                   <th>DORA</th>
                   <th>Status</th>
+                  {showOutcome && <th>Outcome</th>}
                   <th>Location</th>
                   <th>Action</th>
                 </tr>
@@ -125,6 +200,11 @@ export function InvQueuePage() {
                     <td>
                       <Badge variant={(inv.lifecycleVariant || inv.statusVariant) as BadgeVariant}>{inv.lifecycle || inv.status}</Badge>
                     </td>
+                    {showOutcome && (
+                      <td>
+                        <Badge variant={(inv.outcomeVariant as BadgeVariant) || 'bg'}>{inv.outcome || '—'}</Badge>
+                      </td>
+                    )}
                     <td>{inv.location}</td>
                     <td>
                       <Button
@@ -141,8 +221,12 @@ export function InvQueuePage() {
                 ))}
                 {!filtered.length && (
                   <tr>
-                    <td colSpan={9} style={{ textAlign: 'center', padding: 24, color: 'var(--text3)' }}>
-                      No open investigations. Fraud alerts from analytics can be escalated here.
+                    <td colSpan={showOutcome ? 10 : 9} style={{ textAlign: 'center', padding: 24, color: 'var(--text3)' }}>
+                      {queueStateFilter === 'resolved'
+                        ? 'No resolved cases yet.'
+                        : queueStateFilter === 'confirmed'
+                          ? 'No confirmed counterfeit cases yet.'
+                          : 'No investigations in this queue state.'}
                     </td>
                   </tr>
                 )}

@@ -31,16 +31,31 @@ export function BrandFraudPage() {
     productName?: string | null;
     doraScore?: number | null;
     severity: string;
+    pin?: string | null;
+    sessionId?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    location?: string | null;
   }) => {
     if (isReadOnly) return;
     try {
       const label = row.patternLabel || row.patternType;
+      const gps =
+        row.latitude != null && row.longitude != null
+          ? `${row.latitude}, ${row.longitude}`
+          : undefined;
       await investigationsApi.create({
         batch: row.batchNumber,
         product: row.productName || undefined,
         severity: row.severity === 'Critical' || row.patternType.includes('HIGH_RISK') || row.patternType.includes('BATCH_MISMATCH') ? 'P1' : 'P2',
         patternType: row.patternType,
         doraScore: row.doraScore ?? undefined,
+        pin: row.pin || undefined,
+        sessionId: row.sessionId || undefined,
+        latitude: row.latitude ?? undefined,
+        longitude: row.longitude ?? undefined,
+        location: row.location || gps,
+        resultCode: row.patternType,
         description: `Escalated from fraud alerts: ${row.patternType} (${label}) on batch ${row.batchNumber}`,
       });
       await refreshInvestigations();

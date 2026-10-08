@@ -14,6 +14,11 @@ export interface InvestigationRow {
   status: string;
   statusVariant: string;
   location: string;
+  sessionId?: string | null;
+  pin?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  resultCode?: string | null;
   description?: string;
   desc?: string;
   opened?: string;
@@ -62,6 +67,8 @@ export interface InvestigationStats {
   p1: number;
   p2: number;
   closed: number;
+  resolved?: number;
+  confirmed?: number;
   avgResolutionDays: number | null;
 }
 
@@ -103,6 +110,11 @@ export const investigationsApi = {
     description: string;
     severity?: 'P1' | 'P2' | 'P3';
     location?: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    sessionId?: string | null;
+    pin?: string | null;
+    resultCode?: string;
     doraScore?: number | null;
     patternType?: string;
   }) => {
@@ -123,6 +135,11 @@ export const investigationsApi = {
 
   clearFalsePositive: async (id: string, body: { reason: string; notes?: string }) => {
     const res = await apiClient.post(`/investigations/${id}/clear-fp`, body);
+    return unwrap<InvestigationRow>(res);
+  },
+
+  confirmCounterfeit: async (id: string, body?: { notes?: string }) => {
+    const res = await apiClient.post(`/investigations/${id}/confirm-counterfeit`, body || {});
     return unwrap<InvestigationRow>(res);
   },
 

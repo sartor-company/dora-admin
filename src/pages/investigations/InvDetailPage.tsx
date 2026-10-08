@@ -154,6 +154,16 @@ export function InvDetailPage() {
           <InfoCell label="Flag" value={inv.flag} />
           <InfoCell label="Assigned" value={inv.officer || 'Unassigned'} />
           <InfoCell label="Status" value={String(inv.lifecycle || inv.status)} />
+          <InfoCell label="Session" value={inv.sessionId || '—'} />
+          <InfoCell label="PIN" value={inv.pin || '—'} />
+          <InfoCell
+            label="GPS"
+            value={
+              inv.latitude != null && inv.longitude != null
+                ? `${inv.latitude}, ${inv.longitude}`
+                : inv.location || '—'
+            }
+          />
         </InfoGrid>
       </Card>
 

@@ -96,6 +96,77 @@ export function ClearFalsePositiveModal({ onSuccess }: Props) {
   );
 }
 
+export function ConfirmCounterfeitModal({ onSuccess }: Props) {
+  const { isOpen, closeModal, getPayload } = useModal();
+  const { refreshInvestigations } = useTenantData();
+  const open = isOpen('confirm-counterfeit');
+  const payload = getPayload<InvestigationActionPayload>('confirm-counterfeit');
+
+  const [notes, setNotes] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setNotes('');
+    setError('');
+  }, [open, payload?.investigationId]);
+
+  const submit = async () => {
+    if (!payload?.investigationId) return;
+    setSaving(true);
+    setError('');
+    try {
+      await investigationsApi.confirmCounterfeit(payload.investigationId, {
+        notes: notes.trim() || undefined,
+      });
+      await refreshInvestigations();
+      closeModal('confirm-counterfeit');
+      onSuccess(`${payload.displayId || payload.investigationId} marked as confirmed counterfeit.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Could not confirm counterfeit.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Modal open={open} onClose={() => closeModal('confirm-counterfeit')} title="Confirm Counterfeit" width={440}>
+      <div style={{ padding: 12, background: 'var(--rb)', borderRadius: 8, marginBottom: 14 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--rt)', marginBottom: 4 }}>
+          Close {payload?.displayId || 'this case'} as confirmed counterfeit
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--rt)' }}>
+          The case leaves the active queue and stays available under Confirmed counterfeit.
+        </div>
+      </div>
+      <FormGroup label="Notes">
+        <textarea
+          className="inp"
+          rows={2}
+          placeholder="Optional findings..."
+          style={{ resize: 'vertical' }}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+        />
+      </FormGroup>
+      {error && (
+        <div style={{ padding: 9, background: 'var(--rb)', borderRadius: 7, fontSize: 12, color: 'var(--rt)', marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
+      <ModalFooter>
+        <Button variant="secondary" onClick={() => closeModal('confirm-counterfeit')} disabled={saving}>
+          Cancel
+        </Button>
+        <Button variant="danger" onClick={submit} disabled={saving || !payload?.investigationId}>
+          {saving ? 'Saving…' : 'Confirm counterfeit'}
+        </Button>
+      </ModalFooter>
+    </Modal>
+  );
+}
+
 const RECIPIENTS = ['Internal record only', 'NAFDAC', 'Nigerian Police Force', 'Legal counsel', 'Other'];
 
 export function EvidenceBundleModal({ onSuccess }: Props) {

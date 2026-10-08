@@ -21,7 +21,7 @@ import { ReplenishGiftModal } from './ReplenishGiftModal';
 import { AddGiftModal } from './AddGiftModal';
 import { EditMemberModal } from './EditMemberModal';
 import { BatchDownloadModal, BatchPauseModal } from './BatchActionModals';
-import { ClearFalsePositiveModal, EvidenceBundleModal } from './InvestigationActionModals';
+import { ClearFalsePositiveModal, ConfirmCounterfeitModal, EvidenceBundleModal } from './InvestigationActionModals';
 import { ReportsModal } from './ReportsModal';
 import type { BatchActionPayload, EditMemberPayload, ActivateStickerBatchPayload, PaymentGatewayPayload, StickerTrackPayload } from '../context/ModalContext';
 import { PlaceStickerOrderModal } from './PlaceStickerOrderModal';
@@ -127,6 +127,7 @@ export function ModalsRoot() {
       <ReportsModal open={isOpen('reports')} onClose={close('reports')} showToast={showToast} />
 
       <ClearFalsePositiveModal onSuccess={(msg) => showToast(msg, 'success')} />
+      <ConfirmCounterfeitModal onSuccess={(msg) => showToast(msg, 'success')} />
       <EvidenceBundleModal onSuccess={(msg) => showToast(msg, 'success')} />
 
       <BatchDownloadModal

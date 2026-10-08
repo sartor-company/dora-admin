@@ -59,6 +59,7 @@ export type ModalId =
   | 'reports'
   | 'flag-batch-inv'
   | 'clear-fp'
+  | 'confirm-counterfeit'
   | 'evidence-bundle'
   | 'batch-download'
   | 'batch-pause'

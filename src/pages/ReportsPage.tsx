@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { analyticsApi } from '../api/analytics';
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { FormGroup } from '../components/ui/FormGroup';
@@ -56,6 +57,30 @@ export function ReportsPage() {
   const [dateTo, setDateTo] = useState('');
   const [skuFilter, setSkuFilter] = useState('');
   const [history, setHistory] = useState<ReportHistoryItem[]>(() => loadHistory());
+  const [sessionQuery, setSessionQuery] = useState('');
+  const [searchingReports, setSearchingReports] = useState(false);
+  const [reportHits, setReportHits] = useState<
+    Awaited<ReturnType<typeof analyticsApi.productReports>>['reports'] | null
+  >(null);
+
+  const searchBySession = async () => {
+    const q = sessionQuery.trim();
+    if (!q) {
+      showToast('Enter a session identifier', 'warn');
+      return;
+    }
+    setSearchingReports(true);
+    try {
+      const res = await analyticsApi.productReports(q);
+      setReportHits(res.reports);
+      if (!res.reports.length) showToast('No reports match that session identifier', 'warn');
+    } catch (err) {
+      setReportHits([]);
+      showToast(err instanceof Error ? err.message : 'Could not search reports');
+    } finally {
+      setSearchingReports(false);
+    }
+  };
 
   const filteredProducts = useMemo(() => {
     if (!skuFilter) return products;
@@ -107,6 +132,64 @@ export function ReportsPage() {
   return (
     <>
       <PageHeader title="Reports" subtitle="Generate and download platform reports from live data" />
+
+      <Card style={{ marginBottom: 12 }}>
+        <div className="ct" style={{ marginBottom: 11 }}>
+          Find a consumer report
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <input
+            className="inp"
+            placeholder="Search by session identifier"
+            value={sessionQuery}
+            onChange={(e) => setSessionQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') void searchBySession();
+            }}
+            style={{ flex: 1, minWidth: 220 }}
+          />
+          <Button size="sm" onClick={() => void searchBySession()} disabled={searchingReports}>
+            {searchingReports ? 'Searching…' : 'Search'}
+          </Button>
+        </div>
+        {reportHits && (
+          <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+            {reportHits.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text3)' }}>No reports found for that session identifier.</div>
+            ) : (
+              reportHits.map((report) => (
+                <div
+                  key={report.id}
+                  style={{
+                    padding: 10,
+                    background: 'var(--bg)',
+                    borderRadius: 7,
+                    fontSize: 12,
+                    display: 'grid',
+                    gap: 4,
+                  }}
+                >
+                  <div style={{ fontWeight: 700 }}>{report.ticketId}</div>
+                  <div>
+                    Session:{' '}
+                    <span style={{ fontFamily: "'DM Mono', monospace" }}>{report.sessionId || '—'}</span>
+                  </div>
+                  <div>
+                    {report.productName || 'Unknown product'} · Batch {report.batchNumber || '—'} · PIN result{' '}
+                    {report.pinResult || '—'}
+                  </div>
+                  <div>
+                    DORA {report.doraScore != null ? `${report.doraScore}%` : '—'} · GPS{' '}
+                    {report.latitude != null && report.longitude != null
+                      ? `${report.latitude}, ${report.longitude}`
+                      : report.storeLocation || '—'}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </Card>
 
       <div className="r2">
         <div>

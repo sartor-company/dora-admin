@@ -48,6 +48,10 @@ export interface FraudAnalytics {
     pin: string;
     doraScore?: number | null;
     eventCount?: number;
+    sessionId?: string | null;
+    latitude?: number | null;
+    longitude?: number | null;
+    location?: string | null;
   }[];
 }
 

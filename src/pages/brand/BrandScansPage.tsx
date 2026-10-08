@@ -128,6 +128,18 @@ function verdictVariant(verdict?: string): BadgeVariant {
   return 'ba';
 }
 
+function isPlaceholderPinWarning(value?: string | null) {
+  if (!value) return true;
+  return /^warning\b/i.test(value) || /scan anomaly/i.test(value);
+}
+
+/** Stage 1 scans have no scratch-PIN verdict. Show a dash instead of a warning. */
+function missingPinResult(session: { stage?: number; pin?: string | null; authResult?: string | null; failedPinCount?: number }) {
+  if ((session.failedPinCount || 0) > 0) return false;
+  if (session.authResult && !isPlaceholderPinWarning(session.authResult)) return false;
+  return session.stage !== 2;
+}
+
 export function BrandScansPage() {
   const { showToast } = useToast();
   const { role, navigateTo } = useApp();
@@ -612,7 +624,9 @@ export function BrandScansPage() {
 
                     {/* Verdict / PIN */}
                     <td>
-                      {s.authResult ? (
+                      {missingPinResult(s) ? (
+                        <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
+                      ) : s.authResult ? (
                         <div>
                           <Badge variant={verdictVariant(s.authResult)}>
                             {s.authResult}
@@ -965,19 +979,21 @@ export function BrandScansPage() {
                       letterSpacing: '0.08em',
                     }}
                   >
-                    {inspectingSession.pin || 'None (Stage 1 drop-off)'}
+                    {inspectingSession.stage !== 2 && !inspectingSession.pin ? '—' : inspectingSession.pin || '—'}
                   </div>
                 </div>
 
                 <div>
                   <div style={{ fontSize: 11, color: 'var(--text3)' }}>Verification Result</div>
                   <div style={{ marginTop: 2 }}>
-                    {inspectingSession.authResult ? (
+                    {missingPinResult(inspectingSession) ? (
+                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
+                    ) : inspectingSession.authResult ? (
                       <Badge variant={verdictVariant(inspectingSession.authResult)}>
                         {inspectingSession.authResult}
                       </Badge>
                     ) : (
-                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>Not verified yet</span>
+                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
                     )}
                   </div>
                 </div>
