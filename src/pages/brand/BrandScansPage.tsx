@@ -156,6 +156,7 @@ export function BrandScansPage() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('All Statuses');
   const [stage, setStage] = useState('All Stages');
+  const [deviceId, setDeviceId] = useState('');
   const [page, setPage] = useState(1);
   const [limit] = useState(20);
 
@@ -177,6 +178,7 @@ export function BrandScansPage() {
           status: status !== 'All Statuses' ? status : undefined,
           stage: stage === 'Stage 1' ? 1 : stage === 'Stage 2' ? 2 : undefined,
           search: search.trim() || undefined,
+          deviceId: deviceId.trim() || undefined,
         });
         setData(res);
       } catch (err) {
@@ -186,7 +188,7 @@ export function BrandScansPage() {
         setRefreshing(false);
       }
     },
-    [page, limit, status, stage, search],
+    [page, limit, status, stage, search, deviceId],
   );
 
   useEffect(() => {
@@ -241,6 +243,13 @@ export function BrandScansPage() {
     );
   };
 
+  const filterByDevice = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    setDeviceId(id);
+    setPage(1);
+    closeInspector();
+  };
+
   const handleExportCsv = () => {
     if (!data?.sessions.length) {
       showToast('No sessions to export');
@@ -249,6 +258,8 @@ export function BrandScansPage() {
     const headers = [
       'Date & Time',
       'Session ID',
+      'Device ID',
+      'Device Scans',
       'Stage',
       'Status',
       'Product Name',
@@ -264,6 +275,8 @@ export function BrandScansPage() {
     const rows = data.sessions.map((s) => [
       s.createdAt ? new Date(s.createdAt).toISOString() : '',
       s.sessionId,
+      s.deviceId || '—',
+      s.deviceScanCount != null ? String(s.deviceScanCount) : '—',
       s.stage === 2 ? 'Stage 2 (Auth)' : 'Stage 1 (Scan)',
       s.status,
       s.productName || '—',
@@ -292,12 +305,13 @@ export function BrandScansPage() {
     return Math.round(((data.kpis.stage1Count || 0) / data.kpis.total) * 100);
   }, [data]);
 
-  const hasFilters = search || status !== 'All Statuses' || stage !== 'All Stages';
+  const hasFilters = search || deviceId || status !== 'All Statuses' || stage !== 'All Stages';
 
   const resetFilters = () => {
     setSearch('');
     setStatus('All Statuses');
     setStage('All Stages');
+    setDeviceId('');
     setPage(1);
   };
 
@@ -343,7 +357,11 @@ export function BrandScansPage() {
         <KCard
           label="Total Scan Sessions"
           value={String(data?.kpis?.total ?? 0)}
-          trend="Recorded across all batches"
+          trend={
+            data?.kpis?.uniqueDevices
+              ? `From ${data.kpis.uniqueDevices} unique device${data.kpis.uniqueDevices === 1 ? '' : 's'}`
+              : 'Recorded across all batches'
+          }
           style={{ borderLeft: '3px solid var(--navy)' }}
         />
         <KCard
@@ -408,6 +426,19 @@ export function BrandScansPage() {
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <input
+              type="text"
+              className="inp"
+              placeholder="Device ID"
+              title="Show only sessions from this device (exact match)"
+              value={deviceId}
+              onChange={(e) => {
+                setDeviceId(e.target.value);
+                setPage(1);
+              }}
+              style={{ width: 200, fontFamily: deviceId ? "'DM Mono', monospace" : undefined }}
+            />
+
             <select
               className="inp"
               value={status}
@@ -475,6 +506,23 @@ export function BrandScansPage() {
         >
           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text1)' }}>
             Live Sessions {data?.pagination ? `(${data.pagination.total})` : ''}
+            {deviceId.trim() && (
+              <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 500, color: 'var(--text2)' }}>
+                from device{' '}
+                <code style={{ fontFamily: "'DM Mono', monospace", fontSize: 11 }}>{deviceId.trim()}</code>{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDeviceId('');
+                    setPage(1);
+                  }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 12 }}
+                  title="Clear device filter"
+                >
+                  ✕
+                </button>
+              </span>
+            )}
           </div>
           {data?.pagination && data.pagination.pages > 1 && (
             <div style={{ fontSize: 12, color: 'var(--text3)' }}>
@@ -581,6 +629,38 @@ export function BrandScansPage() {
                           {copiedId === s.sessionId ? '✓' : '⧉'}
                         </button>
                       </div>
+                      {s.deviceId && (
+                        <button
+                          type="button"
+                          onClick={(e) => filterByDevice(s.deviceId!, e)}
+                          title={`Device ${s.deviceId}: click to show all scans from this device`}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            marginTop: 4,
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            cursor: 'pointer',
+                            fontFamily: "'DM Mono', monospace",
+                            fontSize: 10,
+                            color: 'var(--text3)',
+                          }}
+                        >
+                          <span>dev {s.deviceId.slice(0, 8)}</span>
+                          {(s.deviceScanCount ?? 0) > 1 && (
+                            <span
+                              style={{
+                                fontWeight: 600,
+                                color: 'var(--amber)',
+                              }}
+                            >
+                              ×{s.deviceScanCount}
+                            </span>
+                          )}
+                        </button>
+                      )}
                     </td>
 
                     {/* Product & Batch */}
@@ -867,6 +947,48 @@ export function BrandScansPage() {
                   {formatDateTime(inspectingSession.createdAt)}
                 </div>
               </div>
+            </div>
+
+            {/* Device */}
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 12,
+                flexWrap: 'wrap',
+                padding: '10px 14px',
+                borderRadius: 8,
+                border: '1px solid var(--border)',
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  Device ID
+                </div>
+                <div
+                  style={{
+                    fontFamily: "'DM Mono', monospace",
+                    fontSize: 12,
+                    color: 'var(--text1)',
+                    marginTop: 4,
+                    wordBreak: 'break-all',
+                  }}
+                >
+                  {inspectingSession.deviceId || 'Not captured (session predates device tracking)'}
+                </div>
+                {inspectingSession.deviceId && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>
+                    {inspectingSession.deviceScanCount ?? 1} scan session
+                    {(inspectingSession.deviceScanCount ?? 1) === 1 ? '' : 's'} from this device
+                  </div>
+                )}
+              </div>
+              {inspectingSession.deviceId && (
+                <Button size="sm" variant="secondary" onClick={() => filterByDevice(inspectingSession.deviceId!)}>
+                  Show all scans from device
+                </Button>
+              )}
             </div>
 
             {/* Stage 1 Inspection Card */}

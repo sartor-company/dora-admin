@@ -63,6 +63,7 @@ export const analyticsApi = {
     status?: string;
     stage?: number | string;
     search?: string;
+    deviceId?: string;
   }) => {
     const res = await apiClient.get('/analytics/scan-sessions', { params });
     return unwrap<ScanSessionsResponse>(res);

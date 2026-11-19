@@ -147,6 +147,10 @@ export interface ScanSessionConsumer {
 export interface ScanSession {
   _id: string;
   sessionId: string;
+  /** Anonymous persistent browser ID from the verify web app (absent on older sessions) */
+  deviceId?: string;
+  /** Total sessions recorded for this deviceId (tenant-scoped) */
+  deviceScanCount?: number;
   stage: number;
   batchNumber?: string;
   productName?: string;
@@ -184,6 +188,7 @@ export interface ScanSessionsResponse {
     completedCount: number;
     timeoutCount: number;
     lockedCount?: number;
+    uniqueDevices?: number;
   };
   pagination: {
     total: number;
